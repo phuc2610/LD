@@ -184,7 +184,7 @@ const Collection = () => {
         )}
 
         {/* Filter Bar - Horizontal Layout */}
-        <div className='border-b border-[#e5e5e5] pb-4 mb-8'>
+        <div className='border-b border-[#e5e5e5] pb-4 mb-8 relative z-30'>
           <div className='flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm'>
             {/* Filter Prices */}
             <div 
@@ -202,7 +202,7 @@ const Collection = () => {
                 <>
                   {/* Bridge to prevent dropdown from closing when moving mouse */}
                   <div className='absolute top-full left-0 w-full h-2' />
-                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px] animate-fadeIn'>
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-50 min-w-[180px] animate-fadeIn'>
                     <div className='p-3 space-y-2'>
                     {PRICE_OPTIONS.map((option) => (
                       <label key={option.value} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
@@ -239,7 +239,7 @@ const Collection = () => {
                 <>
                   {/* Bridge to prevent dropdown from closing when moving mouse */}
                   <div className='absolute top-full left-0 w-full h-2' />
-                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 max-h-72 overflow-y-auto min-w-[200px] animate-fadeIn'>
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-50 max-h-72 overflow-y-auto min-w-[200px] animate-fadeIn'>
                     <div className='p-3 space-y-2'>
                     {TYPE_OPTIONS.map((option)=>(
                       <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
@@ -269,7 +269,7 @@ const Collection = () => {
                 <>
                   {/* Bridge to prevent dropdown from closing when moving mouse */}
                   <div className='absolute top-full left-0 w-full h-2' />
-                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[140px] animate-fadeIn'>
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-50 min-w-[140px] animate-fadeIn'>
                     <div className='p-3 space-y-2'>
                     {SIZE_OPTIONS.map((option)=>(
                       <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
@@ -299,7 +299,7 @@ const Collection = () => {
                 <>
                   {/* Bridge to prevent dropdown from closing when moving mouse */}
                   <div className='absolute top-full left-0 w-full h-2' />
-                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[200px] max-h-72 overflow-y-auto animate-fadeIn'>
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-50 min-w-[200px] max-h-72 overflow-y-auto animate-fadeIn'>
                     <div className='p-3 space-y-2'>
                     {COLOR_OPTIONS.map((option)=>(
                       <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
@@ -329,7 +329,7 @@ const Collection = () => {
                 <>
                   {/* Bridge to prevent dropdown from closing when moving mouse */}
                   <div className='absolute top-full left-0 w-full h-2' />
-                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px] animate-fadeIn'>
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-50 min-w-[180px] animate-fadeIn'>
                     <div className='p-3 space-y-2'>
                       {["Streetwear","Athleisure","Casual","Minimal"].map((style)=>(
                         <label key={style} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>

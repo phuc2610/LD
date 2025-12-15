@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { ShopContext } from "../context/ShopContext";
 import Title from "../components/Title";
-import { assets } from "../assets/assets";
 import CartTotal from "../components/CartTotal";
 
 const Cart = () => {
@@ -97,19 +96,21 @@ const Cart = () => {
                           </svg>
                         </button>
                         <input
-                          onChange={(e) =>
-                            e.target.value === "" || e.target.value === "0"
-                              ? null
-                              : updateQuantity(
-                                  item._id,
-                                  item.size,
-                                  Number(e.target.value)
-                                )
-                          }
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const next = Number(e.target.value);
+                            if (Number.isNaN(next)) return;
+                            updateQuantity(item._id, item.size, Math.max(1, next));
+                          }}
+                          onBlur={(e) => {
+                            const next = Number(e.target.value);
+                            if (!next || Number.isNaN(next)) {
+                              updateQuantity(item._id, item.size, 1);
+                            }
+                          }}
                           className="w-12 px-2 py-2 text-sm font-light text-center focus:outline-none border-0 bg-transparent"
                           type="number"
                           min={1}
-                          defaultValue={item.quantity}
                         />
                         <button
                           onClick={() => updateQuantity(item._id, item.size, item.quantity + 1)}

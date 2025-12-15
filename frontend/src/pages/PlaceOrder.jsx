@@ -1,10 +1,61 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useState, memo } from 'react'
 import Title from '../components/Title'
 import CartTotal from '../components/CartTotal'
 import { assets } from '../assets/assets'
 import { ShopContext } from '../context/ShopContext'
 import { toast } from 'react-toastify'
 import axios from 'axios'
+
+const InputField = memo(({
+  name,
+  label,
+  type = 'text',
+  placeholder,
+  required = true,
+  className = '',
+  value,
+  onChange,
+  onBlur,
+  error,
+  isTouched
+}) => {
+  const hasError = isTouched && error;
+
+  return (
+    <div className={className}>
+      <label 
+        htmlFor={name}
+        className="block text-xs font-light uppercase tracking-wider text-[#111111] mb-2"
+      >
+        {label} {required && <span className="text-[#ef4444]">*</span>}
+      </label>
+      <input 
+        id={name}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        required={required}
+        className={`w-full px-0 py-3 border-0 border-b bg-transparent
+          text-sm font-light tracking-wide text-[#111111]
+          placeholder:text-[#222222] placeholder:opacity-40
+          focus:outline-none transition-colors duration-300
+          ${hasError 
+            ? 'border-[#ef4444]' 
+            : 'border-[#e5e5e5] focus:border-[#111111]'
+          }`}
+        autoComplete="on"
+      />
+      {hasError && (
+        <p className="text-xs text-[#ef4444] mt-1 animate-fadeIn">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+});
 
 const PlaceOrder = () => {
   const [method, setMethod] = useState('cod');
@@ -175,44 +226,6 @@ const PlaceOrder = () => {
     }
   }
 
-  const InputField = ({ name, label, type = 'text', placeholder, required = true, className = '' }) => {
-    const hasError = touched[name] && errors[name];
-    
-    return (
-      <div className={className}>
-        <label 
-          htmlFor={name}
-          className="block text-xs font-light uppercase tracking-wider text-[#111111] mb-2"
-        >
-          {label} {required && <span className="text-[#ef4444]">*</span>}
-        </label>
-        <input 
-          id={name}
-          name={name}
-          type={type}
-          value={formData[name]}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          placeholder={placeholder}
-          required={required}
-          className={`w-full px-0 py-3 border-0 border-b bg-transparent
-            text-sm font-light uppercase tracking-wide text-[#111111]
-            placeholder:text-[#222222] placeholder:opacity-40
-            focus:outline-none transition-colors duration-300
-            ${hasError 
-              ? 'border-[#ef4444]' 
-              : 'border-[#e5e5e5] focus:border-[#111111]'
-            }`}
-        />
-        {hasError && (
-          <p className="text-xs text-[#ef4444] mt-1 animate-fadeIn">
-            {errors[name]}
-          </p>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className='bg-white py-8 sm:py-16 lg:py-24'>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -229,11 +242,21 @@ const PlaceOrder = () => {
                   name="firstName"
                   label="Họ"
                   placeholder="Nhập họ"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={errors.firstName}
+                  isTouched={touched.firstName}
                 />
                 <InputField 
                   name="lastName"
                   label="Tên"
                   placeholder="Nhập tên"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={errors.lastName}
+                  isTouched={touched.lastName}
                 />
               </div>
               
@@ -242,12 +265,22 @@ const PlaceOrder = () => {
                 label="Email"
                 type="email"
                 placeholder="email@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.email}
+                isTouched={touched.email}
               />
               
               <InputField 
                 name="street"
                 label="Địa chỉ"
                 placeholder="Số nhà, tên đường"
+                value={formData.street}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.street}
+                isTouched={touched.street}
               />
               
               <div className='grid grid-cols-1 sm:grid-cols-2 gap-6'>
@@ -255,11 +288,21 @@ const PlaceOrder = () => {
                   name="city"
                   label="Quận/Huyện"
                   placeholder="Quận/Huyện"
+                  value={formData.city}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={errors.city}
+                  isTouched={touched.city}
                 />
                 <InputField 
                   name="state"
                   label="Thành phố"
                   placeholder="Thành phố"
+                  value={formData.state}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={errors.state}
+                  isTouched={touched.state}
                 />
               </div>
               
@@ -269,11 +312,21 @@ const PlaceOrder = () => {
                   label="Mã bưu chính"
                   type="number"
                   placeholder="00000"
+                  value={formData.zipcode}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={errors.zipcode}
+                  isTouched={touched.zipcode}
                 />
                 <InputField 
                   name="country"
                   label="Quốc gia"
                   placeholder="Việt Nam"
+                  value={formData.country}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  error={errors.country}
+                  isTouched={touched.country}
                 />
               </div>
               
@@ -282,6 +335,11 @@ const PlaceOrder = () => {
                 label="Số điện thoại"
                 type="tel"
                 placeholder="0123456789"
+                value={formData.phone}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                error={errors.phone}
+                isTouched={touched.phone}
               />
             </div>
           </div>

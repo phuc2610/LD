@@ -10,3 +10,5 @@ wishlistRouter.get("/get", authUser, getWishlist);
 
 export default wishlistRouter;
 
+
+
