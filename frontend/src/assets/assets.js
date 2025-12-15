@@ -41,6 +41,9 @@ import p_img26 from './p_img26.webp'
 
 
 import dior from './dior.jpg'
+import br1 from './br1.jpg'
+import br2 from './br2.jpg'
+import br3 from './br3.jpg'
 
 import logo from './Logo.png'
 import hero_img from './hero_img.png'
@@ -63,6 +66,9 @@ import cross_icon from './cross_icon.png'
 
 export const assets = {
     dior,
+    br1,
+    br2,
+    br3,
     logo,
     hero_img,
     cart_icon,

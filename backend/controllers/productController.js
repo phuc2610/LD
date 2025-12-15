@@ -115,4 +115,93 @@ const singleProduct = async (req,res) => {
 
 }
 
-export {listProducts , addProduct , removeProduct , singleProduct};
+// function for update product
+const updateProduct = async (req,res) => {
+    try {
+        const {id, name, description, price, category, subCategory, sizes, bestseller, type, colors, stockBySize, existingImages} = req.body
+
+        // Get existing product
+        const existingProduct = await productModel.findById(id);
+        if (!existingProduct) {
+            return res.json({success:false, message:"Không tìm thấy sản phẩm"});
+        }
+
+        // Handle new images
+        const image1 = req.files?.image1 && req.files.image1[0]
+        const image2 = req.files?.image2 && req.files.image2[0]
+        const image3 = req.files?.image3 && req.files.image3[0]
+        const image4 = req.files?.image4 && req.files.image4[0]
+
+        const newImages = [image1, image2, image3, image4].filter((item) => item !== undefined);
+
+        let newImagesUrl = [];
+        if (newImages.length > 0) {
+            newImagesUrl = await Promise.all(
+                newImages.map(async (item) => {
+                    let result = await cloudinary.uploader.upload(item.path, {resource_type:'image'});
+                    return result.secure_url;
+                })
+            );
+        }
+
+        // Parse existing images
+        let parsedExistingImages = [];
+        if (existingImages) {
+            try {
+                parsedExistingImages = JSON.parse(existingImages);
+            } catch (err) {
+                parsedExistingImages = existingProduct.image || [];
+            }
+        } else {
+            parsedExistingImages = existingProduct.image || [];
+        }
+
+        // Combine existing and new images
+        const finalImages = [...parsedExistingImages, ...newImagesUrl];
+
+        // Parse sizes/colors safely
+        const safeParseArray = (value) => {
+            if (!value) return [];
+            if (Array.isArray(value)) return value;
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (err) {
+                return [];
+            }
+        }
+        
+        let parsedStock = {S:0,M:0,L:0,XL:0};
+        if (stockBySize) {
+            try {
+                const maybe = JSON.parse(stockBySize);
+                parsedStock = { ...parsedStock, ...maybe };
+            } catch (err) {
+                parsedStock = existingProduct.stockBySize || {S:0,M:0,L:0,XL:0};
+            }
+        }
+
+        const updateData = {
+            name,
+            description,
+            price: Number(price),
+            category,
+            subCategory,
+            type: type || "ACCESSORIES",
+            bestseller: bestseller === "true" ? true : false,
+            sizes: safeParseArray(sizes),
+            colors: safeParseArray(colors),
+            stockBySize: parsedStock,
+            image: finalImages.length > 0 ? finalImages : existingProduct.image,
+        }
+
+        await productModel.findByIdAndUpdate(id, updateData);
+        res.json({success:true, message:"Sản phẩm đã được cập nhật thành công"});
+
+    } catch (error) {
+        console.log(error);
+        res.json({success:false, message:error.message});
+    }
+}
+
+export {listProducts , addProduct , removeProduct , singleProduct, updateProduct};

@@ -16,41 +16,55 @@ const ShopContextProvider = (props) => {
     const [products , setProducts] = useState([]);
     const [token ,setToken] = useState('');
     const [user , setUser] = useState(null);
+    const [wishlist, setWishlist] = useState([]);
     const navigate = useNavigate();
 
 
 
 
     const addToCart = async(itemId , size) =>{
-
-        if(!size){
-            toast.error('Vui lòng chọn size sản phẩm !');
+        // Get product info to check sizes
+        const product = products.find(p => p._id === itemId);
+        
+        // If product has multiple sizes and no size selected, show error
+        if (product && product.sizes && product.sizes.length > 1 && !size) {
+            toast.error('Vui lòng chọn size sản phẩm !');
             return;
-        } else {
-            toast.success('Sản phẩm đã được thêm vào giỏ hàng');
         }
+        
+        // If no size provided but product has 1 or 0 sizes, use default
+        let finalSize = size;
+        if (!finalSize) {
+            if (product && product.sizes && product.sizes.length === 1) {
+                finalSize = product.sizes[0];
+            } else {
+                finalSize = 'ONE_SIZE'; // Default for products without sizes
+            }
+        }
+        
+        toast.success('Sản phẩm đã được thêm vào giỏ hàng');
 
 
         let cartData = structuredClone(cartItems);
         
         if(cartData[itemId]){
-            if(cartData[itemId][size]){
-                cartData[itemId][size] +=1;
+            if(cartData[itemId][finalSize]){
+                cartData[itemId][finalSize] +=1;
             }
             else{
-                cartData[itemId][size] =1;
+                cartData[itemId][finalSize] =1;
             }
         }
         else{
             cartData[itemId] = {};
-            cartData[itemId][size] = 1;
+            cartData[itemId][finalSize] = 1;
         }
         setCartItems(cartData);
 
         if(token) {
             try {
 
-                await axios.post(backendUrl + '/api/cart/add' , {itemId,size} , {headers:{token}});
+                await axios.post(backendUrl + '/api/cart/add' , {itemId, size: finalSize} , {headers:{token}});
 
             } catch (error) {
                 console.log(error);
@@ -143,13 +157,118 @@ const ShopContextProvider = (props) => {
         getProductsData();
     },[])
 
+    // Wishlist functions
+    const addToWishlist = async (productId) => {
+        if (!token) {
+            toast.error('Vui lòng đăng nhập để thêm sản phẩm vào yêu thích');
+            navigate('/login');
+            return;
+        }
+
+        if (!wishlist.includes(productId)) {
+            const newWishlist = [...wishlist, productId];
+            setWishlist(newWishlist);
+            localStorage.setItem('wishlist', JSON.stringify(newWishlist));
+            toast.success('Đã thêm vào yêu thích');
+            
+            try {
+                await axios.post(backendUrl + '/api/wishlist/add', { productId }, { headers: { token } });
+            } catch (error) {
+                console.log(error);
+                toast.error('Không thể đồng bộ với server');
+            }
+        }
+    };
+
+    const removeFromWishlist = async (productId) => {
+        if (!token) {
+            toast.error('Vui lòng đăng nhập để xóa sản phẩm khỏi yêu thích');
+            navigate('/login');
+            return;
+        }
+
+        const newWishlist = wishlist.filter(id => id !== productId);
+        setWishlist(newWishlist);
+        localStorage.setItem('wishlist', JSON.stringify(newWishlist));
+        toast.success('Đã xóa khỏi yêu thích');
+        
+        try {
+            await axios.post(backendUrl + '/api/wishlist/remove', { productId }, { headers: { token } });
+        } catch (error) {
+            console.log(error);
+            toast.error('Không thể đồng bộ với server');
+        }
+    };
+
+    const toggleWishlist = async (productId) => {
+        if (!token) {
+            toast.error('Vui lòng đăng nhập để sử dụng tính năng yêu thích');
+            navigate('/login');
+            return;
+        }
+
+        if (wishlist.includes(productId)) {
+            await removeFromWishlist(productId);
+        } else {
+            await addToWishlist(productId);
+        }
+    };
+
+    const isInWishlist = (productId) => {
+        return wishlist.includes(productId);
+    };
+
+    const getWishlist = async (token) => {
+        if (!token) {
+            // Load from localStorage if no token
+            const savedWishlist = localStorage.getItem('wishlist');
+            if (savedWishlist) {
+                try {
+                    setWishlist(JSON.parse(savedWishlist));
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+            return;
+        }
+        
+        try {
+            const response = await axios.get(backendUrl + '/api/wishlist/get', { headers: { token } });
+            if (response.data.success) {
+                setWishlist(response.data.wishlist || []);
+                localStorage.setItem('wishlist', JSON.stringify(response.data.wishlist || []));
+            }
+        } catch (error) {
+            console.log(error);
+            // Fallback to localStorage
+            const savedWishlist = localStorage.getItem('wishlist');
+            if (savedWishlist) {
+                try {
+                    setWishlist(JSON.parse(savedWishlist));
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+        }
+    };
+
     useEffect(() =>{
         if(!token && localStorage.getItem('token')){
-            setToken(localStorage.getItem('token'));
-            getUserCart(localStorage.getItem('token'));
+            const savedToken = localStorage.getItem('token');
+            setToken(savedToken);
+            getUserCart(savedToken);
+            getWishlist(savedToken);
+        } else if (token) {
+            getWishlist(token);
         }
-         if(!user && localStorage.getItem('user')){
+        
+        if(!user && localStorage.getItem('user')){
             setUser(JSON.parse(localStorage.getItem('user')));
+        }
+        
+        // Load wishlist from localStorage on mount if no token
+        if (!token && !localStorage.getItem('token')) {
+            getWishlist();
         }
     },[])
 
@@ -160,6 +279,7 @@ const ShopContextProvider = (props) => {
         getCartCount , updateQuantity ,
         getCartAmount, navigate , backendUrl,
         setToken,token , user , setUser,
+        wishlist, addToWishlist, removeFromWishlist, toggleWishlist, isInWishlist,
     }
 
     return (

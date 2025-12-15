@@ -32,6 +32,7 @@ const Collection = () => {
   const [colors,setColors] = useState([]);
   const [priceRange, setPriceRange] = useState('');
   const [sortType, setSortType] = useState('relavent');
+  const [openFilter, setOpenFilter] = useState(null); // 'price', 'type', 'size', 'color', 'style', 'brand'
 
   const toggleArrayValue = (value, setter, state) => {
     if(state.includes(value)){
@@ -87,143 +88,289 @@ const Collection = () => {
   },[brands, styles , types, sizes, colors, priceRange, search , showSearch , products, sortType]);
 
   return (
-    <div className='bg-white pt-8 pb-16'>
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
-        {/* Page Title */}
-        <div className='mb-8'>
-          <h1 className='text-2xl sm:text-3xl font-light uppercase tracking-wider text-[#111111] mb-2'>
+    <div className='bg-white'>
+      {/* Page Header */}
+      <div className='py-12 sm:py-16 lg:py-20 bg-white border-b border-[#e5e5e5]'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+          <h1 className='text-2xl sm:text-3xl lg:text-4xl font-light uppercase tracking-wider text-[#111111] mb-2'>
             Tất cả sản phẩm
           </h1>
+          <p className='text-sm font-light text-[#222222]'>
+            {filterProducts.length} kết quả
+          </p>
         </div>
+      </div>
+      
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12'>
+
+        {/* Active Filters */}
+        {(brands.length > 0 || styles.length > 0 || types.length > 0 || sizes.length > 0 || colors.length > 0 || priceRange) && (
+          <div className='flex flex-wrap items-center gap-2 mb-6'>
+            {priceRange && (
+              <button 
+                onClick={() => setPriceRange('')}
+                className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] text-xs font-light uppercase tracking-wide text-[#111111] hover:border-[#111111] transition-colors duration-300'
+              >
+                {PRICE_OPTIONS.find(r => r.value === priceRange)?.label}
+                <span>×</span>
+              </button>
+            )}
+            {brands.map((brand) => (
+              <button
+                key={brand}
+                onClick={() => toggleArrayValue(brand, setBrands, brands)}
+                className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] text-xs font-light uppercase tracking-wide text-[#111111] hover:border-[#111111] transition-colors duration-300'
+              >
+                {brand}
+                <span>×</span>
+              </button>
+            ))}
+            {types.map((type) => (
+              <button
+                key={type}
+                onClick={() => toggleArrayValue(type, setTypes, types)}
+                className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] text-xs font-light uppercase tracking-wide text-[#111111] hover:border-[#111111] transition-colors duration-300'
+              >
+                {type}
+                <span>×</span>
+              </button>
+            ))}
+            {styles.map((style) => (
+              <button
+                key={style}
+                onClick={() => toggleArrayValue(style, setStyles, styles)}
+                className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] text-xs font-light uppercase tracking-wide text-[#111111] hover:border-[#111111] transition-colors duration-300'
+              >
+                {style}
+                <span>×</span>
+              </button>
+            ))}
+            {sizes.map((size) => (
+              <button
+                key={size}
+                onClick={() => toggleArrayValue(size, setSizes, sizes)}
+                className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] text-xs font-light uppercase tracking-wide text-[#111111] hover:border-[#111111] transition-colors duration-300'
+              >
+                Size: {size}
+                <span>×</span>
+              </button>
+            ))}
+            {colors.map((color) => (
+              <button
+                key={color}
+                onClick={() => toggleArrayValue(color, setColors, colors)}
+                className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] text-xs font-light uppercase tracking-wide text-[#111111] hover:border-[#111111] transition-colors duration-300'
+              >
+                {color}
+                <span>×</span>
+              </button>
+            ))}
+            {(brands.length > 0 || styles.length > 0 || types.length > 0 || sizes.length > 0 || colors.length > 0 || priceRange) && (
+              <button 
+                onClick={() => {
+                  setBrands([]);
+                  setStyles([]);
+                  setTypes([]);
+                  setSizes([]);
+                  setColors([]);
+                  setPriceRange('');
+                }}
+                className='text-xs font-light uppercase tracking-wide text-[#222222] hover:text-[#111111] transition-colors duration-300'
+              >
+                Xóa tất cả
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Filter Bar - Horizontal Layout */}
         <div className='border-b border-[#e5e5e5] pb-4 mb-8'>
           <div className='flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm'>
             {/* Filter Prices */}
-            <div className='relative group'>
+            <div 
+              className='relative'
+              onMouseEnter={() => setOpenFilter('price')}
+              onMouseLeave={() => setOpenFilter(null)}
+            >
               <button className='flex items-center gap-2 text-[#111111] font-light uppercase tracking-wide hover:text-black transition-colors'>
                 Price
-                <svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <svg className={`w-3 h-3 transition-transform duration-300 ${openFilter === 'price' ? 'rotate-180' : ''}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M19 9l-7 7-7-7' />
                 </svg>
               </button>
-              <div className='hidden group-hover:block absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px]'>
-                <div className='p-3 space-y-2'>
-                  {PRICE_OPTIONS.map((option) => (
-                    <label key={option.value} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
-                      <input
-                        className='w-3 h-3'
-                        type="radio"
-                        name="price"
-                        checked={priceRange === option.value}
-                        onChange={() => setPriceRange(option.value)}
-                      />
-                      <span>{option.label}</span>
-                    </label>
-                  ))}
-                  <button onClick={() => setPriceRange('')} type="button" className='text-[11px] text-gray-500 underline'>Reset</button>
-                </div>
-              </div>
+              {openFilter === 'price' && (
+                <>
+                  {/* Bridge to prevent dropdown from closing when moving mouse */}
+                  <div className='absolute top-full left-0 w-full h-2' />
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px] animate-fadeIn'>
+                    <div className='p-3 space-y-2'>
+                    {PRICE_OPTIONS.map((option) => (
+                      <label key={option.value} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
+                        <input
+                          className='w-3 h-3'
+                          type="radio"
+                          name="price"
+                          checked={priceRange === option.value}
+                          onChange={() => setPriceRange(option.value)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                    ))}
+                    <button onClick={() => setPriceRange('')} type="button" className='text-[11px] text-gray-500 underline'>Reset</button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Type Filter */}
-            <div className='relative group'>
+            <div 
+              className='relative'
+              onMouseEnter={() => setOpenFilter('type')}
+              onMouseLeave={() => setOpenFilter(null)}
+            >
               <button className='flex items-center gap-2 text-[#111111] font-light uppercase tracking-wide hover:text-black transition-colors'>
                 Type
-                <svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <svg className={`w-3 h-3 transition-transform duration-300 ${openFilter === 'type' ? 'rotate-180' : ''}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M19 9l-7 7-7-7' />
                 </svg>
               </button>
-              <div className='hidden group-hover:block absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 max-h-72 overflow-y-auto min-w-[200px]'>
-                <div className='p-3 space-y-2'>
-                  {TYPE_OPTIONS.map((option)=>(
-                    <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
-                      <input className='w-3 h-3' type="checkbox" checked={types.includes(option)} onChange={() => toggleArrayValue(option, setTypes, types)} />
-                      <span>{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {openFilter === 'type' && (
+                <>
+                  {/* Bridge to prevent dropdown from closing when moving mouse */}
+                  <div className='absolute top-full left-0 w-full h-2' />
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 max-h-72 overflow-y-auto min-w-[200px] animate-fadeIn'>
+                    <div className='p-3 space-y-2'>
+                    {TYPE_OPTIONS.map((option)=>(
+                      <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
+                        <input className='w-3 h-3' type="checkbox" checked={types.includes(option)} onChange={() => toggleArrayValue(option, setTypes, types)} />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Size Filter */}
-            <div className='relative group'>
+            <div 
+              className='relative'
+              onMouseEnter={() => setOpenFilter('size')}
+              onMouseLeave={() => setOpenFilter(null)}
+            >
               <button className='flex items-center gap-2 text-[#111111] font-light uppercase tracking-wide hover:text-black transition-colors'>
                 Size
-                <svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <svg className={`w-3 h-3 transition-transform duration-300 ${openFilter === 'size' ? 'rotate-180' : ''}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M19 9l-7 7-7-7' />
                 </svg>
               </button>
-              <div className='hidden group-hover:block absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[140px]'>
-                <div className='p-3 space-y-2'>
-                  {SIZE_OPTIONS.map((option)=>(
-                    <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
-                      <input className='w-3 h-3' type="checkbox" checked={sizes.includes(option)} onChange={() => toggleArrayValue(option, setSizes, sizes)} />
-                      <span>{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {openFilter === 'size' && (
+                <>
+                  {/* Bridge to prevent dropdown from closing when moving mouse */}
+                  <div className='absolute top-full left-0 w-full h-2' />
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[140px] animate-fadeIn'>
+                    <div className='p-3 space-y-2'>
+                    {SIZE_OPTIONS.map((option)=>(
+                      <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
+                        <input className='w-3 h-3' type="checkbox" checked={sizes.includes(option)} onChange={() => toggleArrayValue(option, setSizes, sizes)} />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Color Filter */}
-            <div className='relative group'>
+            <div 
+              className='relative'
+              onMouseEnter={() => setOpenFilter('color')}
+              onMouseLeave={() => setOpenFilter(null)}
+            >
               <button className='flex items-center gap-2 text-[#111111] font-light uppercase tracking-wide hover:text-black transition-colors'>
                 Color
-                <svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <svg className={`w-3 h-3 transition-transform duration-300 ${openFilter === 'color' ? 'rotate-180' : ''}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M19 9l-7 7-7-7' />
                 </svg>
               </button>
-              <div className='hidden group-hover:block absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[200px] max-h-72 overflow-y-auto'>
-                <div className='p-3 space-y-2'>
-                  {COLOR_OPTIONS.map((option)=>(
-                    <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
-                      <input className='w-3 h-3' type="checkbox" checked={colors.includes(option)} onChange={() => toggleArrayValue(option, setColors, colors)} />
-                      <span>{option}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {openFilter === 'color' && (
+                <>
+                  {/* Bridge to prevent dropdown from closing when moving mouse */}
+                  <div className='absolute top-full left-0 w-full h-2' />
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[200px] max-h-72 overflow-y-auto animate-fadeIn'>
+                    <div className='p-3 space-y-2'>
+                    {COLOR_OPTIONS.map((option)=>(
+                      <label key={option} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
+                        <input className='w-3 h-3' type="checkbox" checked={colors.includes(option)} onChange={() => toggleArrayValue(option, setColors, colors)} />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Style Filter (SubCategory) */}
-            <div className='relative group'>
+            <div 
+              className='relative'
+              onMouseEnter={() => setOpenFilter('style')}
+              onMouseLeave={() => setOpenFilter(null)}
+            >
               <button className='flex items-center gap-2 text-[#111111] font-light uppercase tracking-wide hover:text-black transition-colors'>
                 Style
-                <svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <svg className={`w-3 h-3 transition-transform duration-300 ${openFilter === 'style' ? 'rotate-180' : ''}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M19 9l-7 7-7-7' />
                 </svg>
               </button>
-              <div className='hidden group-hover:block absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px]'>
-                <div className='p-3 space-y-2'>
-                  {["Streetwear","Athleisure","Casual","Minimal"].map((style)=>(
-                    <label key={style} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
-                      <input className='w-3 h-3' type="checkbox" checked={styles.includes(style)} onChange={() => toggleArrayValue(style, setStyles, styles)} />
-                      <span>{style}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {openFilter === 'style' && (
+                <>
+                  {/* Bridge to prevent dropdown from closing when moving mouse */}
+                  <div className='absolute top-full left-0 w-full h-2' />
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px] animate-fadeIn'>
+                    <div className='p-3 space-y-2'>
+                      {["Streetwear","Athleisure","Casual","Minimal"].map((style)=>(
+                        <label key={style} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
+                          <input className='w-3 h-3' type="checkbox" checked={styles.includes(style)} onChange={() => toggleArrayValue(style, setStyles, styles)} />
+                          <span>{style}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Brand Filter */}
-            <div className='relative group'>
+            <div 
+              className='relative'
+              onMouseEnter={() => setOpenFilter('brand')}
+              onMouseLeave={() => setOpenFilter(null)}
+            >
               <button className='flex items-center gap-2 text-[#111111] font-light uppercase tracking-wide hover:text-black transition-colors'>
                 Brand
-                <svg className='w-3 h-3' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <svg className={`w-3 h-3 transition-transform duration-300 ${openFilter === 'brand' ? 'rotate-180' : ''}`} fill='none' stroke='currentColor' viewBox='0 0 24 24'>
                   <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={1.5} d='M19 9l-7 7-7-7' />
                 </svg>
               </button>
-              <div className='hidden group-hover:block absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px]'>
-                <div className='p-3 space-y-2'>
-                  {["Local Brand","International","Vintage","Collaboration"].map((brand)=>(
-                    <label key={brand} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
-                      <input className='w-3 h-3' type="checkbox" checked={brands.includes(brand)} onChange={() => toggleArrayValue(brand, setBrands, brands)} />
-                      <span>{brand}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
+              {openFilter === 'brand' && (
+                <>
+                  {/* Bridge to prevent dropdown from closing when moving mouse */}
+                  <div className='absolute top-full left-0 w-full h-2' />
+                  <div className='absolute top-full left-0 mt-2 bg-white border border-[#e5e5e5] shadow-sm z-10 min-w-[180px] animate-fadeIn'>
+                    <div className='p-3 space-y-2'>
+                      {["Local Brand","International","Vintage","Collaboration"].map((brand)=>(
+                        <label key={brand} className='flex items-center gap-2 text-xs font-light uppercase tracking-wide cursor-pointer hover:text-black'>
+                          <input className='w-3 h-3' type="checkbox" checked={brands.includes(brand)} onChange={() => toggleArrayValue(brand, setBrands, brands)} />
+                          <span>{brand}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Spacer */}

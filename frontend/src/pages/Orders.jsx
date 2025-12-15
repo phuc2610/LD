@@ -90,53 +90,70 @@ const Orders = () => {
           <Title text1={'Đơn hàng'} text2={'của tôi'} />
         </div>
 
-        <div className='space-y-0 border-t border-[#e5e5e5]'>
-          {
-            orderData.map((item,index) =>(
-              <div key={index} className='py-6 border-b border-[#e5e5e5] flex flex-col md:flex-row md:items-center md:justify-between gap-4'>
-                <div className='flex items-start gap-4 flex-1'>
-                  <img className='w-20 h-20 sm:w-24 sm:h-24 object-cover border border-[#e5e5e5]' src={item.image[0]} alt={item.name} />
-                  <div className='flex-1'>
-                    <p className='text-sm sm:text-base font-light uppercase tracking-wide text-[#111111] mb-2'>{item.name}</p>
-                    <div className='flex items-center gap-4 flex-wrap text-xs sm:text-sm text-[#222222] font-light mb-2'>
-                      <span className='text-[#F5C842]'>{item.price.toLocaleString('vi-VN')}{currency}</span>
-                      <span>Số lượng: {item.quantity}</span>
-                      <span className='border border-[#e5e5e5] px-2 py-1 uppercase tracking-wide'>Size: {item.size}</span>
+        {orderData.length === 0 ? (
+          <div className="text-center py-16 sm:py-24">
+            <svg className="w-16 h-16 mx-auto text-[#e5e5e5] mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-sm sm:text-base text-[#222222] font-light mb-4">Bạn chưa có đơn hàng nào</p>
+            <button
+              onClick={() => navigate("/collection")}
+              className="inline-block bg-[#111111] text-white px-6 py-3 text-xs sm:text-sm font-light uppercase tracking-wider hover:bg-[#222222] transition-colors duration-300"
+            >
+              Mua sắm ngay
+            </button>
+          </div>
+        ) : (
+          <div className='space-y-0 border-t border-[#e5e5e5]'>
+            {
+              orderData.map((item,index) =>(
+                <div key={index} className='py-6 sm:py-8 border-b border-[#e5e5e5] flex flex-col md:flex-row md:items-center md:justify-between gap-6 hover:bg-[#fafafa] transition-colors duration-300'>
+                  <div className='flex items-start gap-4 sm:gap-6 flex-1'>
+                    <img className='w-24 sm:w-28 h-24 sm:h-28 object-cover border border-[#e5e5e5] flex-shrink-0' src={item.image[0]} alt={item.name} />
+                    <div className='flex-1 min-w-0'>
+                      <p className='text-sm sm:text-base font-light uppercase tracking-wide text-[#111111] mb-3 line-clamp-2'>{item.name}</p>
+                      <div className='flex items-center gap-4 flex-wrap text-xs sm:text-sm text-[#222222] font-light mb-3'>
+                        <span className='text-base sm:text-lg text-[#F5C842] font-light'>{item.price.toLocaleString('vi-VN')}{currency}</span>
+                        <span>Số lượng: {item.quantity}</span>
+                        <span className='border border-[#e5e5e5] px-3 py-1.5 uppercase tracking-wide bg-white'>Size: {item.size}</span>
+                      </div>
+                      <div className='space-y-1 text-xs text-[#222222] font-light'>
+                        <p>
+                          Ngày đặt: <span className='opacity-70'>{new Date(item.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                        </p>
+                        <p>
+                          Phương thức: <span className='opacity-70 uppercase'>{item.paymentMethod}</span>
+                        </p>
+                      </div>
                     </div>
-                    <p className='text-xs text-[#222222] font-light mb-1'>
-                      Ngày: <span className='opacity-60'>{new Date(item.createdAt).toLocaleDateString('vi-VN')}</span>
-                    </p>
-                    <p className='text-xs text-[#222222] font-light'>
-                      Phương thức: <span className='opacity-60 uppercase'>{item.paymentMethod}</span>
-                    </p>
                   </div>
-                </div>
-                <div className='flex flex-col sm:flex-row items-start sm:items-center gap-4 md:w-auto'>
-                  <div className='flex items-center gap-2'>
-                    <div className='w-2 h-2 rounded-full bg-black'></div>
-                    <p className='text-xs sm:text-sm font-light uppercase tracking-wide text-[#111111]'>{item.status}</p>
-                  </div>
-                  <div className='flex gap-2'>
-                    <button 
-                      onClick={loadOrderData} 
-                      className='border border-[#e5e5e5] px-4 py-2 text-xs font-light uppercase tracking-wide hover:border-black hover:bg-black hover:text-white transition-all'
-                    >
-                      Theo dõi đơn hàng
-                    </button>
-                    {["Đã giao hàng","completed","delivered"].includes(item.status) && (
-                      <button
-                        onClick={()=>openReview(item)}
-                        className='border border-black px-4 py-2 text-xs font-light uppercase tracking-wide hover:bg-black hover:text-white transition-all'
+                  <div className='flex flex-col sm:flex-row items-start sm:items-center gap-4 md:w-auto'>
+                    <div className='flex items-center gap-2 px-3 py-1.5 border border-[#e5e5e5] bg-white'>
+                      <div className='w-2 h-2 rounded-full bg-[#111111]'></div>
+                      <p className='text-xs sm:text-sm font-light uppercase tracking-wide text-[#111111]'>{item.status}</p>
+                    </div>
+                    <div className='flex gap-2'>
+                      <button 
+                        onClick={loadOrderData} 
+                        className='border border-[#e5e5e5] px-4 py-2.5 text-xs font-light uppercase tracking-wide hover:border-[#111111] hover:bg-[#111111] hover:text-white transition-all duration-300'
                       >
-                        Đánh giá
+                        Theo dõi đơn hàng
                       </button>
-                    )}
+                      {["Đã giao hàng","completed","delivered"].includes(item.status) && (
+                        <button
+                          onClick={()=>openReview(item)}
+                          className='border border-[#111111] bg-[#111111] text-white px-4 py-2.5 text-xs font-light uppercase tracking-wide hover:bg-[#222222] transition-all duration-300'
+                        >
+                          Đánh giá
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          }
-        </div>
+              ))
+            }
+          </div>
+        )}
       </div>
 
       {reviewModal.open && (

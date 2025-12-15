@@ -27,7 +27,9 @@ export default {
       animation: {
         'float': 'float 6s ease-in-out infinite',
         'slideInUp': 'slideInUp 0.5s ease-out',
+        'slideInRight': 'slideInRight 0.3s ease-out',
         'fadeIn': 'fadeIn 0.3s ease-out',
+        'shimmer': 'shimmer 2s infinite',
       },
       keyframes: {
         float: {
@@ -38,9 +40,17 @@ export default {
           '0%': { transform: 'translateY(20px)', opacity: '0' },
           '100%': { transform: 'translateY(0px)', opacity: '1' },
         },
+        slideInRight: {
+          '0%': { transform: 'translateX(100%)' },
+          '100%': { transform: 'translateX(0)' },
+        },
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
         }
       },
       backdropBlur: {

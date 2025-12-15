@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema(
     avatar_url: { type: String, default: null },
     role: { type: String, default: "user" },
     cartData: { type: Object, default: {} },
+    wishlist: { type: [String], default: [] },
   },
   { minimize: false, timestamps: true }
 );

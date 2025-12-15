@@ -1,11 +1,13 @@
 import axios from "axios";
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { backendUrl, currency } from "../App";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
 import ConfirmModal from "../components/ConfirmModal";
 
 const List = ({ token }) => {
+  const navigate = useNavigate();
   const [list, setList] = useState([]);
   const [filteredList, setFilteredList] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -185,15 +187,27 @@ const List = ({ token }) => {
                 {item.price.toLocaleString("vi-VN")}
                 {currency}
               </p>
-              <p
-                onClick={() => handleDeleteClick(item)}
-                className="text-right md:text-center cursor-pointer text-lg flex justify-center "
-              >
-                <img
-                  className="w-10 hover:bg-gray-300 p-2 rounded-[9999px] transition ease-in-out"
-                  src={assets.delete_icon}
-                  alt=""
-                />
+              <p className="text-right md:text-center flex justify-center gap-2">
+                <button
+                  onClick={() => navigate(`/edit/${item._id}`)}
+                  className="text-blue-600 hover:bg-blue-100 p-2 rounded-[9999px] transition ease-in-out"
+                  title="Sửa sản phẩm"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(item)}
+                  className="text-red-600 hover:bg-red-100 p-2 rounded-[9999px] transition ease-in-out"
+                  title="Xóa sản phẩm"
+                >
+                  <img
+                    className="w-6 h-6"
+                    src={assets.delete_icon}
+                    alt=""
+                  />
+                </button>
               </p>
             </div>
           ))

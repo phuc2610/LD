@@ -5,6 +5,7 @@ import Footer from "./components/Footer";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SearchBar from "./components/SearchBar";
+import PageTransition from "./components/PageTransition";
 import About from "./pages/About";
 import Cart from "./pages/Cart";
 import Collection from "./pages/Collection";
@@ -16,36 +17,45 @@ import PlaceOrder from "./pages/PlaceOrder";
 import Product from "./pages/Product";
 import Profile from "./pages/Profile";
 import Verify from "./pages/Verify";
+import Wishlist from "./pages/Wishlist";
 
 const App = () => {
-
- 
   return (
     <div className="min-h-screen bg-[#f9f9f9]">
       <ToastContainer />
       <Navbar />
       <SearchBar />
-      <main>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/collection" element={<Collection />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/product/:productId" element={<Product />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/place-order" element={<PlaceOrder />} />
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/verify" element={<Verify />} />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+      <main className="relative">
+        <PageTransition>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/collection" element={<Collection />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/product/:productId" element={<Product />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/place-order" element={<PlaceOrder />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/verify" element={<Verify />} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/wishlist"
+              element={
+                <ProtectedRoute>
+                  <Wishlist />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </PageTransition>
       </main>
       <Footer />
     </div>

@@ -5,6 +5,7 @@ import Sidebar from "./components/Sidebar";
 import { Routes, Route } from "react-router-dom";
 import Add from "./pages/Add";
 import List from "./pages/List";
+import Edit from "./pages/Edit";
 import Orders from "./pages/Orders";
 import Users from "./pages/Users";
 import Statistics from "./pages/Statistics";
@@ -40,6 +41,7 @@ const App = () => {
                 <Route path="/" element={<Dashboard token={token} />} />
                 <Route path="/add" element={<Add token={token} />} />
                 <Route path="/list" element={<List token={token} />} />
+                <Route path="/edit/:id" element={<Edit token={token} />} />
                 <Route path="/orders" element={<Orders token={token} />} />
                 <Route path="/users" element={<Users token={token} />} />
                 <Route path="/statistics" element={<Statistics token={token} />} />

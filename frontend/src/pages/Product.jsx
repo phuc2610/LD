@@ -8,9 +8,9 @@ import { toast } from 'react-toastify';
 const Product = () => {
 
   const {productId} = useParams();
-  const {products , currency , addToCart, token, backendUrl} = useContext(ShopContext);
+  const {products , currency , addToCart, token, backendUrl, toggleWishlist, isInWishlist} = useContext(ShopContext);
   const [productData ,setProductData] = useState(false);
-  const [image , setImage] = useState('');
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [size, setSize] = useState('');
   const [reviews, setReviews] = useState([]);
   const [canReview, setCanReview] = useState(false);
@@ -18,16 +18,51 @@ const Product = () => {
   const [comment, setComment] = useState('');
   const [reviewImages, setReviewImages] = useState([]);
   const [activeTab, setActiveTab] = useState('desc');
+  const [zoom, setZoom] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
+  const isWishlisted = productData ? isInWishlist(productData._id) : false;
 
   useEffect(() => {
     if (products && products.length > 0) {
       const product = products.find((item) => item._id === productId);
       if (product) {
         setProductData(product);
-        setImage(product.image[0]);
+        setCurrentImageIndex(0);
+        
+        // Auto-select size if product has only 1 size or no sizes
+        if (product.sizes && product.sizes.length === 1) {
+          setSize(product.sizes[0]);
+        } else if (!product.sizes || product.sizes.length === 0) {
+          // If no sizes, set a default value to allow adding to cart
+          setSize('ONE_SIZE');
+        }
       }
     }
   }, [productId, products]);
+
+  const handleImageChange = (index) => {
+    setCurrentImageIndex(index);
+  };
+
+  const handlePrevImage = () => {
+    if (productData && productData.image) {
+      setCurrentImageIndex((prev) => (prev - 1 + productData.image.length) % productData.image.length);
+    }
+  };
+
+  const handleNextImage = () => {
+    if (productData && productData.image) {
+      setCurrentImageIndex((prev) => (prev + 1) % productData.image.length);
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!zoom) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setZoomPosition({ x, y });
+  };
 
   const loadReviews = React.useCallback(async () => {
     try {
@@ -79,38 +114,143 @@ const Product = () => {
   };
 
   return productData ? (
-    <div className='bg-white pt-8 pb-16'>
-      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+    <div className='bg-white'>
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12'>
         {/* Product Data */}
-        <div className='flex gap-8 sm:gap-12 lg:gap-16 flex-col lg:flex-row mb-16'>
+        <div className='flex gap-8 sm:gap-12 lg:gap-16 flex-col lg:flex-row mb-16 sm:mb-20'>
 
           {/* Product Images */}
           <div className='flex-1 flex flex-col-reverse gap-4 sm:flex-row'>
-            <div className='flex sm:flex-col gap-3 overflow-x-auto sm:overflow-y-auto sm:max-h-[600px] sm:w-[18%]'>
+            {/* Thumbnails */}
+            <div className='flex sm:flex-col gap-3 sm:w-[18%] overflow-x-auto sm:overflow-y-auto sm:max-h-[600px] 
+              scrollbar-hide sm:scrollbar-thin sm:scrollbar-thumb-[#e5e5e5] sm:scrollbar-track-transparent'>
               {
                 productData.image.map((item,index)=>(
                   <img 
-                    onClick={() => {setImage(item)}} 
+                    onClick={() => handleImageChange(index)} 
                     src={item} 
                     key={index} 
-                    className={`flex-shrink-0 cursor-pointer border transition-all ${
-                      image === item ? 'border-black' : 'border-[#e5e5e5] hover:border-[#111111]'
+                    className={`flex-shrink-0 cursor-pointer border-2 transition-all duration-300 w-16 h-16 sm:w-full sm:h-auto object-cover ${
+                      currentImageIndex === index 
+                        ? 'border-[#111111] shadow-sm' 
+                        : 'border-[#e5e5e5] hover:border-[#111111] hover:shadow-sm'
                     }`} 
-                    alt="" 
+                    alt={`${productData.name} - ${index + 1}`} 
                   />
                 ))
               }
             </div>
-            <div className='w-full sm:w-[82%]'>
-              <img className='w-full h-auto object-cover' src={image} alt={productData.name} />
+
+            {/* Main Image with Zoom */}
+            <div className='w-full sm:w-[82%] relative overflow-hidden bg-[#f9f9f9] group'>
+              {/* Image Container */}
+              <div 
+                className='relative w-full aspect-square overflow-hidden'
+                onMouseEnter={() => setZoom(true)}
+                onMouseLeave={() => setZoom(false)}
+                onMouseMove={handleMouseMove}
+              >
+                {/* All Images with Slide Effect */}
+                {productData.image.map((img, index) => {
+                  const isActive = index === currentImageIndex;
+                  const isNext = index === (currentImageIndex + 1) % productData.image.length;
+                  
+                  return (
+                    <img 
+                      key={index}
+                      className={`absolute inset-0 w-full h-full object-cover
+                        transition-all duration-700 ease-in-out
+                        ${isActive 
+                          ? 'opacity-100 translate-x-0 scale-100 z-10' 
+                          : isNext
+                          ? 'opacity-0 translate-x-full scale-105 z-0'
+                          : 'opacity-0 -translate-x-full scale-105 z-0'
+                        }`}
+                      src={img} 
+                      alt={`${productData.name} - ${index + 1}`}
+                      style={zoom && isActive ? {
+                        transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                        transform: 'scale(2)',
+                        transition: 'transform 0.1s ease-out'
+                      } : {}}
+                    />
+                  );
+                })}
+
+                {/* Navigation Buttons */}
+                {productData.image.length > 1 && (
+                  <>
+                    <button
+                      onClick={handlePrevImage}
+                      className='absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 backdrop-blur-sm 
+                        border border-[#e5e5e5] flex items-center justify-center
+                        hover:bg-white hover:border-[#111111] transition-all duration-300
+                        opacity-0 group-hover:opacity-100 shadow-sm'
+                      aria-label="Previous image"
+                    >
+                      <svg className='w-5 h-5 text-[#111111]' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={handleNextImage}
+                      className='absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 bg-white/90 backdrop-blur-sm 
+                        border border-[#e5e5e5] flex items-center justify-center
+                        hover:bg-white hover:border-[#111111] transition-all duration-300
+                        opacity-0 group-hover:opacity-100 shadow-sm'
+                      aria-label="Next image"
+                    >
+                      <svg className='w-5 h-5 text-[#111111]' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+
+                {/* Zoom Indicator */}
+                {zoom && (
+                  <div className='absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/70 text-white px-3 py-1.5 
+                    text-xs font-light uppercase tracking-wide animate-fadeIn'>
+                    Di chuyển chuột để phóng to
+                  </div>
+                )}
+              </div>
             </div>        
           </div>
           
-          {/* Product Info */}
+          {/* Product Info - Sticky on Desktop */}
           <div className='flex-1 lg:max-w-md'>
-            <h1 className='text-xl sm:text-2xl font-light uppercase tracking-wider text-[#111111] mb-4'>
-              {productData.name}
-            </h1>
+            <div className='lg:sticky lg:top-24 space-y-6'>
+            <div className='flex items-start justify-between gap-4'>
+              <h1 className='text-xl sm:text-2xl lg:text-3xl font-light uppercase tracking-wider text-[#111111] flex-1'>
+                {productData.name}
+              </h1>
+              {/* Wishlist Button */}
+              <button
+                onClick={() => toggleWishlist(productData._id)}
+                className='flex-shrink-0 w-10 h-10 flex items-center justify-center
+                  border border-[#e5e5e5] bg-white
+                  hover:border-[#111111] hover:bg-[#f9f9f9]
+                  transition-all duration-300
+                  group/wishlist'
+                aria-label={isWishlisted ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
+              >
+                <svg 
+                  className={`w-5 h-5 transition-all duration-300 ${
+                    isWishlisted 
+                      ? 'fill-[#ef4444] text-[#ef4444] scale-110' 
+                      : 'fill-none text-[#111111] group-hover/wishlist:scale-110'
+                  }`}
+                  stroke="currentColor" 
+                  strokeWidth={1.5} 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" 
+                    d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" 
+                  />
+                </svg>
+              </button>
+            </div>
             
             <div className='flex items-center gap-2 mb-6'>
               <div className='flex items-center gap-1'>
@@ -126,49 +266,90 @@ const Product = () => {
               {productData.price.toLocaleString('vi-VN')}{currency}
             </p>
             
-            <p className='text-sm text-[#222222] font-light leading-relaxed mb-8'>
+            <p className='text-sm text-[#222222] font-light leading-relaxed mb-8 border-b border-[#e5e5e5] pb-8'>
               {productData.description}
             </p>
             
-            <div className='mb-8'>
-              <p className='text-xs font-light uppercase tracking-wider text-[#111111] mb-3'>Chọn size</p>
-              <div className='flex flex-wrap gap-2'>
-                {productData.sizes.map((item,index)=>(
-                  <button 
-                    onClick={() => setSize(item)} 
-                    className={`border py-2 px-6 text-xs font-light uppercase tracking-wider transition-all ${
-                      item === size 
-                        ? 'border-black bg-black text-white' 
-                        : 'border-[#e5e5e5] bg-white text-[#111111] hover:border-black'
-                    }`} 
-                    key={index}
-                  >
-                    {item}
-                  </button>
-                ))}
+            {/* Only show size selector if product has more than 1 size */}
+            {productData.sizes && productData.sizes.length > 1 && (
+              <div className='mb-8'>
+                <p className='text-xs font-light uppercase tracking-wider text-[#111111] mb-4'>Chọn size</p>
+                <div className='flex flex-wrap gap-2'>
+                  {productData.sizes.map((item,index)=>(
+                    <button 
+                      onClick={() => setSize(item)} 
+                      className={`border py-2.5 px-6 text-xs font-light uppercase tracking-wider transition-all duration-300 ${
+                        item === size 
+                          ? 'border-[#111111] bg-[#111111] text-white shadow-sm' 
+                          : 'border-[#e5e5e5] bg-white text-[#111111] hover:border-[#111111] hover:bg-[#f9f9f9]'
+                      }`} 
+                      key={index}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+                {!size && (
+                  <p className='text-xs text-red-500 mt-2'>Vui lòng chọn size sản phẩm !</p>
+                )}
               </div>
-            </div>
+            )}
             
             <button 
-              onClick={() => addToCart(productData._id, size)} 
-              className='w-full bg-black text-white px-8 py-3 text-xs sm:text-sm font-light uppercase tracking-wider hover:opacity-80 transition-opacity mb-8'
+              onClick={() => {
+                // If product has multiple sizes, require selection
+                if (productData.sizes && productData.sizes.length > 1 && !size) {
+                  toast.error('Vui lòng chọn size sản phẩm !');
+                  return;
+                }
+                // Use the selected size, auto-selected size, or 'ONE_SIZE' for products without sizes
+                const selectedSize = size || (productData.sizes && productData.sizes.length === 1 ? productData.sizes[0] : 'ONE_SIZE');
+                addToCart(productData._id, selectedSize);
+              }} 
+              className='w-full bg-[#111111] text-white px-8 py-4 text-xs sm:text-sm font-light uppercase tracking-wider 
+                hover:bg-[#222222] hover:shadow-lg hover:-translate-y-0.5
+                active:scale-[0.98]
+                disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none
+                transition-all duration-300 mb-8'
+              disabled={productData.sizes && productData.sizes.length > 1 && !size}
             >
               Thêm vào giỏ hàng
             </button>
             
             <div className='border-t border-[#e5e5e5] pt-6'>
-              <div className='text-xs text-[#222222] font-light space-y-2'>
-                <p>• Sản phẩm vợt cầu lông chính hãng 100%.</p>
-                <p>• Hỗ trợ giao hàng toàn quốc, thanh toán khi nhận hàng.</p>
-                <p>• Bảo hành chính hãng, đổi trả dễ dàng trong 7 ngày nếu có lỗi từ nhà sản xuất.</p>
-                <p>• Tư vấn chọn vợt phù hợp miễn phí cho mọi khách hàng.</p>
+              <div className='text-xs text-[#222222] font-light space-y-3 leading-relaxed'>
+                <div className='flex items-start gap-2'>
+                  <svg className='w-3 h-3 text-[#111111] mt-0.5 flex-shrink-0' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p>Sản phẩm chính hãng 100%.</p>
+                </div>
+                <div className='flex items-start gap-2'>
+                  <svg className='w-3 h-3 text-[#111111] mt-0.5 flex-shrink-0' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p>Hỗ trợ giao hàng toàn quốc, thanh toán khi nhận hàng.</p>
+                </div>
+                <div className='flex items-start gap-2'>
+                  <svg className='w-3 h-3 text-[#111111] mt-0.5 flex-shrink-0' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p>Bảo hành chính hãng, đổi trả dễ dàng trong 7 ngày nếu có lỗi từ nhà sản xuất.</p>
+                </div>
+                <div className='flex items-start gap-2'>
+                  <svg className='w-3 h-3 text-[#111111] mt-0.5 flex-shrink-0' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p>Tư vấn miễn phí cho mọi khách hàng.</p>
+                </div>
               </div>
+            </div>
             </div>
           </div>      
         </div>
 
         {/* Description & Reviews Section */}
-        <div className='border-t border-[#e5e5e5] pt-12 mb-16'>
+        <div className='border-t border-[#e5e5e5] pt-12 mb-16 sm:mb-20'>
           <div className='flex border-b border-[#e5e5e5]'>
             <button
               onClick={()=>setActiveTab('desc')}
