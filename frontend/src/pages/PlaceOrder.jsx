@@ -1,4 +1,4 @@
-import React, { useContext, useState, memo } from 'react'
+import React, { useContext, useState, memo, useCallback } from 'react'
 import Title from '../components/Title'
 import CartTotal from '../components/CartTotal'
 import { assets } from '../assets/assets'
@@ -133,23 +133,19 @@ const PlaceOrder = () => {
     return error;
   };
 
-  const handleBlur = (e) => {
+  const handleBlur = useCallback((e) => {
     const { name, value } = e.target;
-    setTouched({ ...touched, [name]: true });
-    const error = validateField(name, value);
-    setErrors({ ...errors, [name]: error });
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(data => ({ ...data, [name]: value }));
-    
-    // Real-time validation for touched fields
-    if (touched[name]) {
+    setTouched(prev => ({ ...prev, [name]: true }));
+    setErrors(prev => {
       const error = validateField(name, value);
-      setErrors({ ...errors, [name]: error });
-    }
-  };
+      return { ...prev, [name]: error };
+    });
+  }, []);
+
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }, []);
 
   const validateForm = () => {
     const newErrors = {};

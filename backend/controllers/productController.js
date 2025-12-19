@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import mongoose from "mongoose";
 import productModel from "../models/productModel.js";
 
 // function for add product
@@ -115,6 +116,50 @@ const singleProduct = async (req,res) => {
 
 }
 
+// Get sold quantity for a product
+const getProductSoldQuantity = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.json({ success: true, soldQuantity: 0 });
+        }
+
+        const orderModel = (await import('../models/orderModel.js')).default;
+        
+        // Convert productId to string for matching (items._id is stored as string in orders)
+        const productIdStr = productId.toString();
+        
+        const result = await orderModel.aggregate([
+            {
+                $unwind: "$items"
+            },
+            {
+                $match: {
+                    "items._id": { $in: [productId, productIdStr] },
+                    "payment": true
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalSold: { $sum: "$items.quantity" }
+                }
+            }
+        ]);
+
+        const soldQuantity = result.length > 0 ? result[0].totalSold : 0;
+
+        res.json({
+            success: true,
+            soldQuantity: soldQuantity
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: true, soldQuantity: 0 });
+    }
+}
+
 // function for update product
 const updateProduct = async (req,res) => {
     try {
@@ -204,4 +249,4 @@ const updateProduct = async (req,res) => {
     }
 }
 
-export {listProducts , addProduct , removeProduct , singleProduct, updateProduct};
+export {listProducts , addProduct , removeProduct , singleProduct, updateProduct, getProductSoldQuantity};

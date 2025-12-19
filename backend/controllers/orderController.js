@@ -163,7 +163,33 @@ const placeOrderRazorpay = async (req, res) => {};
 // All Orders Data for Admin page
 const allOrders = async (req, res) => {
   try {
-    const orders = await orderModel.find({});
+    const orders = await orderModel.find({}).sort({ createdAt: -1 }).lean();
+    
+    // Populate product images for each order item
+    for (const order of orders) {
+      if (order.items && Array.isArray(order.items)) {
+        for (const item of order.items) {
+          if (item._id) {
+            try {
+              const product = await productModel.findById(item._id).select('image name').lean();
+              if (product) {
+                // Update item with product image if not already present
+                if (!item.image || !item.image[0]) {
+                  item.image = product.image || [];
+                }
+                // Ensure product name is correct
+                if (!item.name && product.name) {
+                  item.name = product.name;
+                }
+              }
+            } catch (err) {
+              console.log(`Error fetching product ${item._id}:`, err);
+            }
+          }
+        }
+      }
+    }
+    
     res.json({ success: true, orders });
   } catch (error) {
     console.log(error);
@@ -198,6 +224,44 @@ const updateStatus = async (req, res) => {
   }
 };
 
+// Get orders by userId (for admin to view customer orders)
+const getUserOrdersByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const orders = await orderModel.find({ userId }).sort({ createdAt: -1 }).lean();
+    
+    // Populate product images for each order item
+    for (const order of orders) {
+      if (order.items && Array.isArray(order.items)) {
+        for (const item of order.items) {
+          if (item._id) {
+            try {
+              const product = await productModel.findById(item._id).select('image name').lean();
+              if (product) {
+                // Update item with product image if not already present
+                if (!item.image || !item.image[0]) {
+                  item.image = product.image || [];
+                }
+                // Ensure product name is correct
+                if (!item.name && product.name) {
+                  item.name = product.name;
+                }
+              }
+            } catch (err) {
+              console.log(`Error fetching product ${item._id}:`, err);
+            }
+          }
+        }
+      }
+    }
+    
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
 export {
   verifyStripe,
   placeOrder,
@@ -206,4 +270,5 @@ export {
   allOrders,
   userOrders,
   updateStatus,
+  getUserOrdersByAdmin,
 };

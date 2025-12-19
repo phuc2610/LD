@@ -5,7 +5,7 @@ import NewsletterBox from '../components/NewsletterBox'
 import { useForm, ValidationError } from '@formspree/react';
 const Contact = () => {
 
-  const [state, handleSubmit] = useForm("xeokwkeg");
+  const [state, handleSubmit] = useForm("mkgvgrpp");
   if (state.succeeded) {
       return <p className='text-center py-16 text-sm font-light text-[#111111]'>Cảm ơn bạn đã gửi lời nhắn cho Shop!</p>;
   }

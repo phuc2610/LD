@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import mongoose from "mongoose";
 import reviewModel from "../models/reviewModel.js";
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
@@ -107,5 +108,123 @@ const listProductReviews = async (req, res) => {
   }
 };
 
-export { addReview, listProductReviews };
+// Get rating summary for a product (avgRating and reviewCount)
+const getRatingSummary = async (req, res) => {
+  try {
+    const { productId } = req.params;
+
+    // Validate productId
+    if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+      return res.json({
+        success: true,
+        avgRating: 0,
+        reviewCount: 0
+      });
+    }
+
+    const result = await reviewModel.aggregate([
+      {
+        $match: { productId: new mongoose.Types.ObjectId(productId) }
+      },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: "$rating" },
+          reviewCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    if (result.length === 0) {
+      return res.json({
+        success: true,
+        avgRating: 0,
+        reviewCount: 0
+      });
+    }
+
+    const avgRating = Math.round(result[0].avgRating * 10) / 10; // Round to 1 decimal place
+
+    res.json({
+      success: true,
+      avgRating: avgRating || 0,
+      reviewCount: result[0].reviewCount || 0
+    });
+  } catch (error) {
+    console.log(error);
+    // Return default values on error instead of error response
+    res.json({
+      success: true,
+      avgRating: 0,
+      reviewCount: 0
+    });
+  }
+};
+
+// Get all reviews (for admin)
+const getAllReviews = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, productId, userId } = req.query;
+    const pageNumber = parseInt(page);
+    const limitNumber = parseInt(limit);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    let query = {};
+    if (productId) query.productId = productId;
+    if (userId) query.userId = userId;
+
+    const reviews = await reviewModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .populate({ path: "userId", select: "name email" })
+      .populate({ path: "productId", select: "name image price" })
+      .lean();
+
+    const total = await reviewModel.countDocuments(query);
+
+    res.json({
+      success: true,
+      reviews,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Admin reply to review
+const adminReplyToReview = async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { reply } = req.body;
+
+    if (!reply || !reply.trim()) {
+      return res.json({ success: false, message: "Vui lòng nhập nội dung phản hồi" });
+    }
+
+    const review = await reviewModel.findById(reviewId);
+    if (!review) {
+      return res.json({ success: false, message: "Không tìm thấy đánh giá" });
+    }
+
+    review.adminReply = reply.trim();
+    review.adminReplyAt = new Date();
+    await review.save();
+
+    res.json({ success: true, message: "Đã phản hồi đánh giá", review });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export { addReview, listProductReviews, getRatingSummary, getAllReviews, adminReplyToReview };
 

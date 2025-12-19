@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SearchBar from "./components/SearchBar";
 import PageTransition from "./components/PageTransition";
+import ChatWidget from "./components/ChatWidget";
 import About from "./pages/About";
 import Cart from "./pages/Cart";
 import Collection from "./pages/Collection";
@@ -20,12 +21,14 @@ import Verify from "./pages/Verify";
 import Wishlist from "./pages/Wishlist";
 
 const App = () => {
+
+ 
   return (
-    <div className="min-h-screen bg-[#f9f9f9]">
+    <div className="min-h-screen bg-white">
       <ToastContainer />
       <Navbar />
       <SearchBar />
-      <main className="relative">
+      <main className="relative min-h-[calc(100vh-200px)] bg-white">
         <PageTransition>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -35,7 +38,14 @@ const App = () => {
             <Route path="/product/:productId" element={<Product />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/place-order" element={<PlaceOrder />} />
+            <Route
+              path="/place-order"
+              element={
+                <ProtectedRoute>
+                  <PlaceOrder />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/orders" element={<Orders />} />
             <Route path="/verify" element={<Verify />} />
             <Route
@@ -58,6 +68,7 @@ const App = () => {
         </PageTransition>
       </main>
       <Footer />
+      <ChatWidget />
     </div>
   );
 };

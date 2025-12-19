@@ -1,8 +1,8 @@
-import React, { useContext } from 'react'
+import React, { useContext, memo } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import Title from './Title';
 
-const CartTotal = () => {
+const CartTotal = memo(() => {
 
     const {currency , delivery_fee , getCartAmount} = useContext(ShopContext);
 
@@ -34,6 +34,6 @@ const CartTotal = () => {
         </div>
     </div>
   )
-}
+})
 
 export default CartTotal

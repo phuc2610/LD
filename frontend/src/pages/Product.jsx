@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import {ShopContext}  from '../context/ShopContext';
 import { assets } from '../assets/assets'
 import RelatedProducts from '../components/RelatedProducts';
+import RatingStars from '../components/RatingStars';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 const Product = () => {
@@ -20,6 +21,11 @@ const Product = () => {
   const [activeTab, setActiveTab] = useState('desc');
   const [zoom, setZoom] = useState(false);
   const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
+  const [avgRating, setAvgRating] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [loadingRating, setLoadingRating] = useState(false);
+  const [soldQuantity, setSoldQuantity] = useState(0);
+  const [loadingSold, setLoadingSold] = useState(false);
   const isWishlisted = productData ? isInWishlist(productData._id) : false;
 
   useEffect(() => {
@@ -82,6 +88,53 @@ const Product = () => {
     loadReviews();
   }, [loadReviews]);
 
+  // Load rating summary
+  const loadRatingSummary = React.useCallback(async () => {
+    if (!productId) return;
+    
+    setLoadingRating(true);
+    try {
+      const res = await axios.get(`${backendUrl}/api/review/summary/${productId}`);
+      if (res.data.success) {
+        setAvgRating(res.data.avgRating || 0);
+        setReviewCount(res.data.reviewCount || 0);
+      }
+    } catch (error) {
+      console.log(error);
+      // Fallback to 0 if API fails
+      setAvgRating(0);
+      setReviewCount(0);
+    } finally {
+      setLoadingRating(false);
+    }
+  }, [backendUrl, productId]);
+
+  useEffect(() => {
+    loadRatingSummary();
+  }, [loadRatingSummary]);
+
+  // Load sold quantity
+  const loadSoldQuantity = React.useCallback(async () => {
+    if (!productId) return;
+    
+    setLoadingSold(true);
+    try {
+      const res = await axios.get(`${backendUrl}/api/product/${productId}/sold`);
+      if (res.data.success) {
+        setSoldQuantity(res.data.soldQuantity || 0);
+      }
+    } catch (error) {
+      console.log(error);
+      setSoldQuantity(0);
+    } finally {
+      setLoadingSold(false);
+    }
+  }, [backendUrl, productId]);
+
+  useEffect(() => {
+    loadSoldQuantity();
+  }, [loadSoldQuantity]);
+
   const submitReview = async (e) => {
     e.preventDefault();
     if (!token) {
@@ -104,6 +157,7 @@ const Product = () => {
         setReviewImages([]);
         setRating(5);
         loadReviews();
+        loadRatingSummary(); // Update rating summary after submitting review
       } else {
         toast.error(res.data.message);
       }
@@ -253,18 +307,24 @@ const Product = () => {
             </div>
             
             <div className='flex items-center gap-2 mb-6'>
-              <div className='flex items-center gap-1'>
-                {[...Array(4)].map((_, i) => (
-                  <img key={i} src={assets.star_icon} alt="" className="w-3 h-3" />
-                ))}
-                <img src={assets.star_dull_icon} alt="" className="w-3 h-3" />
-              </div>
-              <span className='text-xs text-[#222222] font-light'>(122)</span>
+              <RatingStars value={avgRating} />
+              <span className='text-xs text-[#222222] font-light'>
+                {avgRating.toFixed(1)} ({reviewCount})
+              </span>
             </div>
             
-            <p className='text-2xl sm:text-3xl font-light text-[#F5C842] mb-6'>
+            <p className='text-2xl sm:text-3xl font-light text-[#F5C842] mb-4'>
               {productData.price.toLocaleString('vi-VN')}{currency}
             </p>
+            
+            <div className='mb-6 pb-6 border-b border-[#e5e5e5]'>
+              <p className='text-xs sm:text-sm text-[#222222] font-light mb-2'>
+                <span className='opacity-70'>Đã bán:</span>{' '}
+                <span className='font-medium text-[#111111]'>
+                  {loadingSold ? '...' : soldQuantity.toLocaleString('vi-VN')} sản phẩm
+                </span>
+              </p>
+            </div>
             
             <p className='text-sm text-[#222222] font-light leading-relaxed mb-8 border-b border-[#e5e5e5] pb-8'>
               {productData.description}
@@ -442,10 +502,26 @@ const Product = () => {
                       <p className='text-xs text-[#777] mb-2'>{new Date(rv.createdAt).toLocaleString('vi-VN')}</p>
                       <p className='text-sm text-[#222] mb-3'>{rv.comment}</p>
                       {rv.images && rv.images.length > 0 && (
-                        <div className='flex gap-2 flex-wrap'>
+                        <div className='flex gap-2 flex-wrap mb-3'>
                           {rv.images.map((img, idx)=>(
                             <img key={idx} src={img} alt="review" className='w-20 h-20 object-cover border'/>
                           ))}
+                        </div>
+                      )}
+                      {rv.adminReply && (
+                        <div className='mt-3 pt-3 border-t border-[#e5e5e5] bg-[#f9f9f9] p-3 rounded'>
+                          <div className='flex items-center gap-2 mb-2'>
+                            <svg className='w-4 h-4 text-blue-600' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p className='text-xs font-semibold text-blue-600'>Phản hồi từ quản trị viên</p>
+                            {rv.adminReplyAt && (
+                              <p className='text-xs text-[#777] ml-auto'>
+                                {new Date(rv.adminReplyAt).toLocaleString('vi-VN')}
+                              </p>
+                            )}
+                          </div>
+                          <p className='text-sm text-[#222]'>{rv.adminReply}</p>
                         </div>
                       )}
                     </div>

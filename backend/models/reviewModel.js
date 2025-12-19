@@ -9,6 +9,13 @@ const reviewSchema = new mongoose.Schema(
     comment: { type: String, default: "" },
     images: { type: [String], default: [] },
     size: { type: String, default: "" },
+    adminReply: { 
+      type: String, 
+      default: "" 
+    },
+    adminReplyAt: {
+      type: Date
+    }
   },
   { timestamps: true }
 );
@@ -16,6 +23,10 @@ const reviewSchema = new mongoose.Schema(
 const reviewModel = mongoose.models.review || mongoose.model("review", reviewSchema);
 
 export default reviewModel;
+
+
+
+
 
 
 

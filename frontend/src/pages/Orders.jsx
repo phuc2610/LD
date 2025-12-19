@@ -7,7 +7,7 @@ import { toast } from 'react-toastify';
 
 const Orders = () => {
 
-  const {backendUrl , token , currency} = useContext(ShopContext);
+  const {backendUrl , token , currency, navigate} = useContext(ShopContext);
 
   const [orderData,setorderData] = useState([]);
   const [reviewModal, setReviewModal] = useState({ open:false, productId:null, size:'', rating:5, comment:'', images:[] });
@@ -56,6 +56,10 @@ const Orders = () => {
     });
   };
 
+  const closeReviewModal = useCallback(() => {
+    setReviewModal({open:false, productId:null, size:'', rating:5, comment:'', images:[]});
+  }, []);
+
   const submitReview = async (e) => {
     e.preventDefault();
     if(!token) {
@@ -74,7 +78,9 @@ const Orders = () => {
       });
       if(res.data.success){
         toast.success("Đã gửi đánh giá");
-        setReviewModal({open:false, productId:null, size:'', rating:5, comment:'', images:[]});
+        closeReviewModal();
+        // Reload order data to reflect changes
+        loadOrderData();
       } else {
         toast.error(res.data.message);
       }
@@ -83,8 +89,31 @@ const Orders = () => {
     }
   }
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && reviewModal.open) {
+        closeReviewModal();
+      }
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [reviewModal.open, closeReviewModal]);
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (reviewModal.open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [reviewModal.open]);
+
   return (
-    <div className='bg-white py-8 sm:py-16'>
+    <div className='bg-white py-8 sm:py-16 pb-24 sm:pb-32 lg:pb-40'>
       <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
         <div className='mb-8'>
           <Title text1={'Đơn hàng'} text2={'của tôi'} />
@@ -157,23 +186,51 @@ const Orders = () => {
       </div>
 
       {reviewModal.open && (
-        <div className='fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4'>
-          <div className='bg-white p-6 w-full max-w-md rounded shadow-lg'>
-            <h3 className='text-base font-semibold mb-4'>Đánh giá sản phẩm</h3>
+        <div 
+          className='fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[9999] px-4 animate-fadeIn'
+          onClick={closeReviewModal}
+        >
+          <div 
+            className='bg-white p-6 w-full max-w-md rounded shadow-lg max-h-[90vh] overflow-y-auto animate-fadeIn'
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className='flex items-center justify-between mb-4'>
+              <h3 className='text-base font-semibold'>Đánh giá sản phẩm</h3>
+              <button
+                type="button"
+                onClick={closeReviewModal}
+                className='text-[#222222] hover:text-[#111111] transition-colors'
+                aria-label="Close"
+              >
+                <svg className='w-5 h-5' fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <form onSubmit={submitReview} className='space-y-4'>
               <div>
                 <p className='text-xs uppercase tracking-wide text-[#111111] mb-2'>Chọn sao</p>
                 <div className='flex gap-2'>
-                  {[1,2,3,4,5].map(star => (
-                    <button
-                      type="button"
-                      key={star}
-                      onClick={()=>setReviewModal(prev=>({...prev, rating:star}))}
-                      className={`w-8 h-8 flex items-center justify-center border ${reviewModal.rating >= star ? 'bg-black text-white' : 'bg-white text-[#111111]'}`}
-                    >
-                      ★
-                    </button>
-                  ))}
+                  {[1,2,3,4,5].map(star => {
+                    const isSelected = reviewModal.rating >= star;
+                    return (
+                      <button
+                        type="button"
+                        key={star}
+                        onClick={() => {
+                          setReviewModal(prev => ({...prev, rating: star}));
+                        }}
+                        className={`w-8 h-8 flex items-center justify-center border transition-all duration-200 ${
+                          isSelected 
+                            ? 'bg-[#111111] text-white border-[#111111]' 
+                            : 'bg-white text-[#111111] border-[#e5e5e5] hover:border-[#111111] hover:bg-[#f9f9f9]'
+                        }`}
+                        aria-label={`${star} sao`}
+                      >
+                        ★
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div>
@@ -182,7 +239,7 @@ const Orders = () => {
                   value={reviewModal.comment}
                   onChange={(e)=>setReviewModal(prev=>({...prev, comment:e.target.value}))}
                   required
-                  className='w-full border border-[#e5e5e5] p-3 text-sm focus:outline-none focus:border-black'
+                  className='w-full border border-[#e5e5e5] p-3 text-sm focus:outline-none focus:border-black transition-colors'
                   rows={4}
                   placeholder='Chia sẻ trải nghiệm của bạn...'
                 />
@@ -194,14 +251,21 @@ const Orders = () => {
                   multiple
                   accept="image/*"
                   onChange={(e)=> setReviewModal(prev=>({...prev, images: Array.from(e.target.files || [])}))}
-                  className='text-sm'
+                  className='text-sm w-full'
                 />
               </div>
-              <div className='flex justify-end gap-2'>
-                <button type='button' onClick={()=>setReviewModal({open:false, productId:null, size:'', rating:5, comment:'', images:[]})} className='px-4 py-2 text-sm border'>
+              <div className='flex justify-end gap-2 pt-2'>
+                <button 
+                  type='button' 
+                  onClick={closeReviewModal} 
+                  className='px-4 py-2 text-sm border border-[#e5e5e5] hover:border-[#111111] transition-colors'
+                >
                   Hủy
                 </button>
-                <button type='submit' className='px-4 py-2 text-sm bg-black text-white'>
+                <button 
+                  type='submit' 
+                  className='px-4 py-2 text-sm bg-black text-white hover:bg-[#222222] transition-colors'
+                >
                   Gửi
                 </button>
               </div>

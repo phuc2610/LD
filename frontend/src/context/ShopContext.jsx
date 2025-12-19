@@ -102,7 +102,7 @@ const ShopContextProvider = (props) => {
             try {
                 await axios.post(backendUrl + '/api/cart/update' , {itemId,size,quantity} , {headers:{token}});
             } catch (error) {
-                
+                console.log(error);
             }
         }
     }
@@ -117,7 +117,7 @@ const ShopContextProvider = (props) => {
                         totalAmount += itemInfo.price * cartItems[items][item];
                     }
                 } catch (error) {
-                    
+                    console.log(error);
                 }
             }
         }
@@ -155,6 +155,7 @@ const ShopContextProvider = (props) => {
 
     useEffect(() => {
         getProductsData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     },[])
 
     // Wishlist functions
@@ -253,8 +254,8 @@ const ShopContextProvider = (props) => {
     };
 
     useEffect(() =>{
-        if(!token && localStorage.getItem('token')){
-            const savedToken = localStorage.getItem('token');
+        const savedToken = localStorage.getItem('token');
+        if(!token && savedToken){
             setToken(savedToken);
             getUserCart(savedToken);
             getWishlist(savedToken);
@@ -263,13 +264,18 @@ const ShopContextProvider = (props) => {
         }
         
         if(!user && localStorage.getItem('user')){
-            setUser(JSON.parse(localStorage.getItem('user')));
+            try {
+                setUser(JSON.parse(localStorage.getItem('user')));
+            } catch (error) {
+                console.log('Error parsing user from localStorage:', error);
+            }
         }
         
         // Load wishlist from localStorage on mount if no token
-        if (!token && !localStorage.getItem('token')) {
+        if (!token && !savedToken) {
             getWishlist();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     },[])
 
     const value = {
@@ -279,7 +285,7 @@ const ShopContextProvider = (props) => {
         getCartCount , updateQuantity ,
         getCartAmount, navigate , backendUrl,
         setToken,token , user , setUser,
-        wishlist, addToWishlist, removeFromWishlist, toggleWishlist, isInWishlist,
+        wishlist, addToWishlist, removeFromWishlist, toggleWishlist, isInWishlist, getWishlist,
     }
 
     return (

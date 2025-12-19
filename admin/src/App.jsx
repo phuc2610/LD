@@ -10,6 +10,8 @@ import Orders from "./pages/Orders";
 import Users from "./pages/Users";
 import Statistics from "./pages/Statistics";
 import Dashboard from "./pages/Dashboard";
+import Chat from "./pages/Chat";
+import Reviews from "./pages/Reviews";
 import Login from "./components/Login";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -45,6 +47,8 @@ const App = () => {
                 <Route path="/orders" element={<Orders token={token} />} />
                 <Route path="/users" element={<Users token={token} />} />
                 <Route path="/statistics" element={<Statistics token={token} />} />
+                <Route path="/chat" element={<Chat token={token} />} />
+                <Route path="/reviews" element={<Reviews token={token} />} />
               </Routes>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import express from 'express'
-import {listProducts , addProduct , removeProduct , singleProduct, updateProduct} from '../controllers/productController.js'
+import {listProducts , addProduct , removeProduct , singleProduct, updateProduct, getProductSoldQuantity} from '../controllers/productController.js'
 import upload from '../middleware/multer.js';
 import adminAuth from '../middleware/adminAuth.js';
 
@@ -10,5 +10,6 @@ productRouter.post('/update',adminAuth,upload.fields([{name:'image1',maxCount:1}
 productRouter.post('/remove',adminAuth,removeProduct);
 productRouter.post('/single',singleProduct);
 productRouter.get('/list',listProducts);
+productRouter.get('/:productId/sold', getProductSoldQuantity);
 
 export default productRouter
