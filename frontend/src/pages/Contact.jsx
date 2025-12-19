@@ -1,7 +1,6 @@
 import React from 'react'
 import Title from '../components/Title'
 import { assets } from '../assets/assets'
-import NewsletterBox from '../components/NewsletterBox'
 import { useForm, ValidationError } from '@formspree/react';
 const Contact = () => {
 
@@ -107,8 +106,6 @@ const Contact = () => {
           </div>
         </div>
       </div>
-  
-      <NewsletterBox />
     </div>
   )
 }

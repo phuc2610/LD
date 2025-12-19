@@ -9,38 +9,75 @@ import jwt from "jsonwebtoken";
 const userCanReview = async (userId, productId) => {
   // status coi là hoàn thành: "Đã giao hàng" hoặc "completed" hoặc "delivered"
   const completedStatuses = ["Đã giao hàng", "completed", "delivered"];
+  const orders = await orderModel.find({
+    userId,
+    status: { $in: completedStatuses },
+    "items._id": productId,
+  }).sort({ createdAt: -1 });
+  
+  // 返回未评价的订单（如果有多个订单，返回第一个未评价的）
+  for (const order of orders) {
+    const existingReview = await reviewModel.findOne({ userId, productId, orderId: order._id });
+    if (!existingReview) {
+      return order;
+    }
+  }
+  return null;
+};
+
+// 验证订单是否可以评价
+const validateOrderForReview = async (userId, productId, orderId) => {
+  if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+    return { valid: false, message: "OrderId không hợp lệ" };
+  }
+  
+  const completedStatuses = ["Đã giao hàng", "completed", "delivered"];
   const order = await orderModel.findOne({
+    _id: orderId,
     userId,
     status: { $in: completedStatuses },
     "items._id": productId,
   });
-  return order || null;
+  
+  if (!order) {
+    return { valid: false, message: "Đơn hàng không tồn tại hoặc chưa hoàn thành" };
+  }
+  
+  return { valid: true, order };
 };
 
 const addReview = async (req, res) => {
   try {
     const userId = req.userId;
-    const { productId, rating, comment, size } = req.body;
+    const { productId, orderId, rating, comment, size } = req.body;
     const imagesFiles = req.files || [];
 
     if (!productId || !rating) {
       return res.status(400).json({ success: false, message: "Thiếu productId hoặc rating" });
     }
 
-    const existing = await reviewModel.findOne({ userId, productId });
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: "Thiếu orderId" });
+    }
+
+    // 检查是否已经对这个特定订单评价过
+    const existing = await reviewModel.findOne({ userId, productId, orderId });
     if (existing) {
       return res
         .status(400)
-        .json({ success: false, message: "Bạn đã đánh giá sản phẩm này rồi" });
+        .json({ success: false, message: "Bạn đã đánh giá đơn hàng này rồi" });
     }
 
-    const order = await userCanReview(userId, productId);
-    if (!order) {
+    // 验证订单
+    const validation = await validateOrderForReview(userId, productId, orderId);
+    if (!validation.valid) {
       return res.status(403).json({
         success: false,
-        message: "Chỉ khách đã mua và đơn hàng đã hoàn thành mới được đánh giá sản phẩm",
+        message: validation.message || "Chỉ khách đã mua và đơn hàng đã hoàn thành mới được đánh giá sản phẩm",
       });
     }
+
+    const order = validation.order;
 
     let imagesUrl = [];
     if (imagesFiles.length > 0) {
@@ -55,7 +92,7 @@ const addReview = async (req, res) => {
     const review = new reviewModel({
       productId,
       userId,
-      orderId: order._id,
+      orderId: orderId,
       rating: Number(rating),
       comment: comment || "",
       images: imagesUrl.filter(Boolean),

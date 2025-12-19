@@ -10,7 +10,7 @@ const Orders = () => {
   const {backendUrl , token , currency, navigate} = useContext(ShopContext);
 
   const [orderData,setorderData] = useState([]);
-  const [reviewModal, setReviewModal] = useState({ open:false, productId:null, size:'', rating:5, comment:'', images:[] });
+  const [reviewModal, setReviewModal] = useState({ open:false, productId:null, orderId:null, size:'', rating:5, comment:'', images:[] });
 
   const loadOrderData = useCallback(async () => {
     try {
@@ -27,6 +27,7 @@ const Orders = () => {
               item['payment'] = order.payment
               item['paymentMethod'] = order.paymentMethod
               item['createdAt'] = order.createdAt
+              item['orderId'] = order._id // 添加 orderId
               // item['date'] = order.date
               allOrdersItem.push(item)
             })
@@ -49,6 +50,7 @@ const Orders = () => {
     setReviewModal({
       open:true,
       productId:item._id,
+      orderId:item.orderId,
       size:item.size,
       rating:5,
       comment:'',
@@ -57,7 +59,7 @@ const Orders = () => {
   };
 
   const closeReviewModal = useCallback(() => {
-    setReviewModal({open:false, productId:null, size:'', rating:5, comment:'', images:[]});
+    setReviewModal({open:false, productId:null, orderId:null, size:'', rating:5, comment:'', images:[]});
   }, []);
 
   const submitReview = async (e) => {
@@ -69,6 +71,7 @@ const Orders = () => {
     try {
       const formData = new FormData();
       formData.append('productId', reviewModal.productId);
+      formData.append('orderId', reviewModal.orderId);
       formData.append('rating', reviewModal.rating);
       formData.append('comment', reviewModal.comment);
       if (reviewModal.size) formData.append('size', reviewModal.size);
@@ -214,9 +217,9 @@ const Orders = () => {
                   {[1,2,3,4,5].map(star => {
                     const isSelected = reviewModal.rating >= star;
                     return (
-                      <button
-                        type="button"
-                        key={star}
+                    <button
+                      type="button"
+                      key={star}
                         onClick={() => {
                           setReviewModal(prev => ({...prev, rating: star}));
                         }}
@@ -226,9 +229,9 @@ const Orders = () => {
                             : 'bg-white text-[#111111] border-[#e5e5e5] hover:border-[#111111] hover:bg-[#f9f9f9]'
                         }`}
                         aria-label={`${star} sao`}
-                      >
-                        ★
-                      </button>
+                    >
+                      ★
+                    </button>
                     );
                   })}
                 </div>

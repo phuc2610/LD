@@ -1,7 +1,6 @@
 import React from 'react'
 import Title from '../components/Title'
 import { assets } from '../assets/assets'
-import NewsletterBox from '../components/NewsletterBox'
 const About = () => {
   return (
     <div className='bg-white py-8 sm:py-16'>
@@ -48,8 +47,6 @@ const About = () => {
           </div>
         </div>
       </div>
-
-      <NewsletterBox/>
     </div>
   )
 }

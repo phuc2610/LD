@@ -11,7 +11,7 @@ const Hero = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % heroImages.length);
-    }, 1500); // Chuyển ảnh mỗi 1.5 giây
+    }, 2000); // Chuyển ảnh mỗi 1.5 giây
 
     return () => clearInterval(interval);
   }, [heroImages.length]);
