@@ -1,474 +1,535 @@
-# Kế Hoạch Nâng Cấp SEO Toàn Diện — VINUT USA
+# Kế Hoạch Nâng Cấp SEO & Đa Quốc Gia — VINUT USA
+
+---
 
 ## Hiện trạng
 
-| Tính năng | Trạng thái |
-|---|---|
-| Slug tự động | ✅ Có (từ title/name) — chưa cho phép tùy chỉnh cho trang tĩnh |
-| SEO Panel | ✅ Cơ bản (title, description, keywords, OG image) |
-| Sitemap.xml | ❌ |
-| Schema Markup | ❌ |
-| Redirect 301/404 | ❌ Chỉ SPA fallback |
-| SEO Checklist | ❌ |
-| Tags bài viết | ❌ |
-| Internal Link gợi ý | ❌ |
-| Auto ALT ảnh | ❌ |
-| Facebook Comments / Share | ❌ |
-| View counting | ❌ |
-| GA4 / GSC / GTM | ❌ |
-| CMS Error Checker | ❌ |
-| Related Products | ✅ (theo category) |
-
----
-
-## Phase 1: Slug, Redirect 301/404, Sitemap.xml
-
-### 1.1 Slug chuẩn SEO
-
-**Bước 1** — Tạo [NEW] `vncms/lib/slugify.ts`
-- Viết hàm `seoSlugify(input: string)`: lowercase → bỏ dấu tiếng Việt → thay space bằng `-` → loại ký tự đặc biệt → trim dashes đầu/cuối
-
-**Bước 2** — Sửa [post.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/post.ts)
-- Import `seoSlugify` → dùng làm custom `slugify` function trong field `slug.options`
-- Thêm validation: không cho slug trùng, giới hạn 96 ký tự
-
-**Bước 3** — Sửa [product.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/product.ts) và [productcategory.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/productcategory.ts)
-- Áp dụng `seoSlugify` tương tự post.ts
-- Thêm SEO panel cho `productcategory`
-
-**Bước 4** — Tạo [NEW] `vncms/schemaTypes/pageSlug.ts`
-- Schema document cho phép admin cấu hình slug trang tĩnh (about-us, contact-us, faqs, blog, products...)
-- Fields: `pageName` (string), `slug` (slug), `seo` (seoPanel)
-
-**Bước 5** — Register `pageSlug` trong [index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts)
-
----
-
-### 1.2 Redirect 301/404
-
-**Bước 1** — Tạo [NEW] `vncms/schemaTypes/redirect.ts`
-```ts
-// Fields: fromPath (string), toPath (string), statusCode (301|302), isActive (boolean)
-```
-
-**Bước 2** — Register `redirect` trong [schemaTypes/index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts)
-
-**Bước 3** — Thêm GROQ query vào [querries.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/lib/querries.ts)
-```groq
-*[_type == "redirect" && isActive == true]{ fromPath, toPath, statusCode }
-```
-
-**Bước 4** — Sửa [worker.js](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/worker.js)
-- Trước SPA fallback, fetch redirect rules từ Sanity (cache 1 giờ bằng Cache API)
-- Nếu `url.pathname` match `fromPath` → trả `Response.redirect(toPath, statusCode)`
-- Không match → tiếp tục SPA fallback như cũ
-
-**Bước 5** — Sửa [NotFound404.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/NotFound404.tsx)
-- Thêm `<Helmet>` với `<meta name="robots" content="noindex">` 
-- Thêm gợi ý links cho user (Home, Products, Blog)
-
----
-
-### 1.3 Sitemap.xml (tự động cập nhật)
-
-**Bước 1** — Tạo [NEW] `src/utils/sitemap-builder.ts`
-- Hàm `buildSitemapIndex(sitemaps[])` → XML sitemap index
-- Hàm `buildUrlSet(urls[])` → XML urlset
-- Hàm `buildImageSitemap(images[])` → XML image sitemap
-- Support `hreflang` alternate links cho multi-market (US + Thailand)
-
-**Bước 2** — Sửa [worker.js](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/worker.js) — Thêm route handlers:
-
-| Route | Nội dung |
-|---|---|
-| `/sitemap.xml` | Sitemap index trỏ đến 5 sub-sitemaps |
-| `/sitemap-pages.xml` | Trang tĩnh: `/`, `/products`, `/blog`, `/about-us`, `/contact-us`, `/faqs` + Thailand variants |
-| `/sitemap-posts.xml` | Fetch `*[_type=="post"]{slug, publishedAt, "imageUrl": mainImage.asset->url}` |
-| `/sitemap-products.xml` | Fetch `*[_type=="product"]{slug, lastModified, "imageUrl": mainImage.asset->url}` |
-| `/sitemap-categories.xml` | Fetch `*[_type=="productcategory"]{slug}` |
-| `/image-sitemap.xml` | Tổng hợp imageUrl từ posts + products |
-
-- Mỗi sitemap response có header `Content-Type: application/xml`
-- Cache bằng Cloudflare Cache API (TTL 1 giờ) — tự cập nhật khi cache hết hạn
-
-**Bước 3** — Thêm field `lastModified` (datetime) vào [post.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/post.ts) nếu chưa có (product.ts đã có)
-
-**Bước 4** — Tạo/sửa `public/robots.txt`
-```
-User-agent: *
-Allow: /
-Sitemap: https://vinut-usa.vnt.workers.dev/sitemap.xml
-```
-
----
-
-## Phase 2: Schema Markup (Structured Data)
-
-**Bước 1** — Tạo [NEW] `src/utils/schema-markup.ts`
-- Các hàm generate JSON-LD object:
-
-```ts
-export function buildArticleSchema(post: ArticleType): object { ... }
-export function buildProductSchema(product: ProductType, reviews?: ReviewType[]): object { ... }
-export function buildBreadcrumbSchema(items: {name: string, url: string}[]): object { ... }
-export function buildFAQSchema(faqs: FAQType[]): object { ... }
-export function buildVideoSchema(video: {name, description, thumbnailUrl, contentUrl, uploadDate}): object { ... }
-export function buildAggregateRatingSchema(reviews: ReviewType[]): object { ... }
-export function buildNewsArticleSchema(post: ArticleType): object { ... }
-```
-
-**Bước 2** — Tạo [NEW] `src/components/JsonLd.tsx`
-```tsx
-const JsonLd = ({ data }: { data: object }) => (
-  <Helmet>
-    <script type="application/ld+json">{JSON.stringify(data)}</script>
-  </Helmet>
-);
-```
-
-**Bước 3** — Sửa [BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx)
-- Import `buildArticleSchema`, `buildBreadcrumbSchema`
-- Thêm `<JsonLd data={buildArticleSchema(post)} />`
-- Thêm `<JsonLd data={buildBreadcrumbSchema([{name:"Home",url:"/"},{name:"Blog",url:"/blog"},{name:post.title,url:currentUrl}])} />`
-
-**Bước 4** — Sửa [ProductPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/ProductPost.tsx)
-- Thêm `<JsonLd data={buildProductSchema(product)} />`
-- Thêm `<JsonLd data={buildBreadcrumbSchema([...])} />`
-
-**Bước 5** — Sửa [Faqs.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/Faqs.tsx)
-- Thêm `<JsonLd data={buildFAQSchema(allFAQs)} />`
-
-**Bước 6** — Sửa [AboutUs.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/AboutUs.tsx)
-- Thêm `<JsonLd data={buildVideoSchema({name:"About VINUT",contentUrl:"/about-us.mp4",...})} />`
-
-**Bước 7** — Sửa [Landing.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/Landing.tsx)
-- Fetch reviews → thêm `<JsonLd data={buildAggregateRatingSchema(reviews)} />`
-
----
-
-## Phase 3: Module Viết Bài Chuẩn SEO (Yoast-like)
-
-**Bước 1** — Sửa [seoPanel.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/seoPanel.ts)
-- Thêm field `focusKeyword` (string) — từ khóa chính
-- Thêm field `canonicalUrl` (url) — canonical URL tùy chỉnh (optional)
-
-**Bước 2** — Tạo [NEW] `vncms/components/SeoChecklist.tsx`
-- Custom Sanity component nhận document data → chấm điểm real-time
-- Checklist items:
-
-| # | Kiểm tra | Điều kiện Pass |
+| Tính năng | Trạng thái | Ghi chú |
 |---|---|---|
-| 1 | SEO Title chứa focus keyword | `seoTitle.includes(focusKeyword)` |
-| 2 | Độ dài SEO Title | 30–60 ký tự |
-| 3 | Meta Description chứa focus keyword | `seoDescription.includes(focusKeyword)` |
-| 4 | Độ dài Meta Description | 80–160 ký tự |
-| 5 | Có OG Image | `ogImage != null` |
-| 6 | Slug chứa keyword | `slug.current.includes(keyword)` |
-| 7 | Body có heading H2/H3 | Scan blockContent styles |
-| 8 | Ảnh trong body có ALT | Scan image blocks |
-| 9 | Có internal links | Scan link annotations |
-| 10 | Độ dài body | >300 từ |
-| 11 | Keyword ở đoạn đầu | Đoạn block đầu tiên chứa keyword |
+| Market hiện có | US + Thailand | Hard-code trong market.config.ts, cần chuyển sang CMS |
+| Geo-targeting theo IP | Chưa có | User chọn thủ công bằng dropdown |
+| Sản phẩm theo quốc gia | Chưa có | Chung cho tất cả market |
+| Banner theo quốc gia | Chưa có | Hard-code trong constants |
+| Slug tự động | Có | Từ title/name, chưa tùy chỉnh cho trang tĩnh |
+| SEO Panel | Có | Cơ bản: title, description, keywords, OG image |
+| Sitemap.xml | Chưa có | — |
+| Schema Markup | Chưa có | — |
+| Redirect 301/404 | Chưa có | Chỉ SPA fallback |
+| SEO Checklist | Chưa có | — |
+| Tags bài viết | Chưa có | — |
+| Internal Link gợi ý | Chưa có | — |
+| Auto ALT ảnh | Chưa có | — |
+| Facebook Comments / Share | Chưa có | — |
+| View counting | Chưa có | — |
+| GA4 / GSC / GTM | Chưa có | — |
+| CMS Error Checker | Chưa có | — |
 
-- Hiển thị icon ✅/⚠️/❌ cho mỗi item + điểm tổng /100
+---
 
-**Bước 3** — Sửa [post.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/post.ts)
-- Thêm `SeoChecklist` component vào group `seo` bằng `inputComponent` hoặc custom view
+## Phase 0: Hệ Thống Đa Quốc Gia — Sẵn Sàng Mở Rộng Toàn Cầu
 
-**Bước 4** — Sửa [product.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/product.ts)
-- Tương tự — tích hợp `SeoChecklist`
+### Bối cảnh
+
+Hiện tại website chỉ phục vụ 2 thị trường: US (mặc định) và Thailand. Tuy nhiên, mục tiêu dài hạn là mở rộng ra toàn thế giới — bất kỳ quốc gia nào VINUT muốn tiếp cận đều có thể được thêm vào hệ thống mà không cần sửa code hay deploy lại.
+
+Vì vậy, toàn bộ kiến trúc Phase 0 phải được thiết kế theo nguyên tắc: **admin chỉ cần thao tác trên CMS để thêm quốc gia mới**, hệ thống tự xử lý routing, ngôn ngữ, sản phẩm, banner, SEO. Không có giới hạn về số lượng quốc gia.
+
+---
+
+### Bước 1 — Chuyển quản lý quốc gia từ code sang CMS
+
+Hiện tại danh sách market nằm trong file [market.config.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/config/market.config.ts), hard-code 2 entry (US, Thailand). Mỗi lần muốn thêm quốc gia mới (ví dụ Japan, Korea, Vietnam, Indonesia...) phải sửa file này, thêm file translation, sửa routing, rồi deploy lại. Cách làm này không thể scale khi mở rộng toàn cầu.
+
+Giải pháp: tạo schema `marketConfig` trong Sanity CMS. Mỗi document là một quốc gia. Admin tạo quốc gia mới hoàn toàn trên CMS — không cần developer can thiệp.
+
+Schema chứa các thông tin:
+
+| Field | Mô tả | Ví dụ US | Ví dụ Japan |
+|---|---|---|---|
+| code | Mã nội bộ (unique, dùng trong URL + logic) | [us](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/hooks/useMarket.ts#4-11) | `japan` |
+| label | Tên hiển thị trong dropdown | `United States` | `Japan` |
+| urlPrefix | Prefix cho URL (rỗng = default market) | _(rỗng)_ | `japan` |
+| locale | Mã ngôn ngữ BCP 47 | `en-US` | `ja-JP` |
+| currency | Mã tiền tệ ISO 4217 | `USD` | `JPY` |
+| hreflang | Mã hreflang cho SEO | `en-us` | `ja-jp` |
+| flag | Cờ quốc gia (emoji hoặc ảnh) | 🇺🇸 | 🇯🇵 |
+| isDefault | Đánh dấu market mặc định | true | false |
+| isoCountryCodes | Mảng mã ISO 3166-1 alpha-2 ánh xạ với market này | `["US"]` | `["JP"]` |
+| isActive | Bật/tắt market | true | true |
+
+Field `isoCountryCodes` rất quan trọng: nó ánh xạ mã quốc gia từ IP (Cloudflare trả về ISO code như [US](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/interfaces.ts#119-123), `TH`, `JP`, `VN`, `KR`) với market tương ứng. Một market có thể map nhiều ISO code — ví dụ market "Southeast Asia" có thể map `["SG","MY","ID","PH"]`.
+
+Khi app khởi động, thay vì đọc mảng hard-code, sẽ fetch danh sách markets từ Sanity API. Kết quả được cache để không gọi API mỗi request.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/marketConfig.ts** | Tạo mới — schema quốc gia |
+| **vncms/schemaTypes/index.ts** | Sửa — đăng ký schema |
+| **src/config/market.config.ts** | Sửa — bỏ hard-code, fetch từ Sanity |
+| **vncms/lib/querries.ts** | Sửa — thêm query lấy danh sách markets |
+
+Sau bước này, admin có thể vào CMS → tạo document "Japan" → nhập thông tin → market Japan xuất hiện trong hệ thống. Ban đầu chuẩn bị sẵn 2 documents: US (isDefault=true) và Thailand.
+
+---
+
+### Bước 2 — Tự động phát hiện quốc gia theo IP
+
+Khi người dùng lần đầu truy cập website, hệ thống cần tự nhận diện họ đến từ quốc gia nào để hiển thị nội dung phù hợp. Cloudflare Workers có sẵn header `cf-ipcountry` chứa mã quốc gia ISO 2 chữ cái — không cần gọi API bên ngoài, không tốn phí, không có độ trễ thêm.
+
+Luồng xử lý trong Worker:
+
+| Bước | Logic | Ví dụ |
+|---|---|---|
+| 1. Kiểm tra cookie | Nếu user đã có cookie `vinut-market` → dùng giá trị cookie, bỏ qua IP. Cookie được set khi user tự chọn quốc gia hoặc lần đầu auto-detect | Cookie = `japan` → bỏ qua IP |
+| 2. Đọc IP country | Lấy `cf-ipcountry` từ request header | Header trả về `JP` |
+| 3. Tìm market match | So sánh mã ISO với field `isoCountryCodes` trong danh sách markets (đã cache). Nếu `JP` nằm trong `isoCountryCodes` của market Japan → match | `JP` match market `japan` |
+| 4a. Có match | Redirect 302 đến `/{urlPrefix}/` + set cookie `vinut-market=japan` (max-age 30 ngày) | Redirect 302 → `/japan/` |
+| 4b. Không match | Giữ nguyên ở US (default, không redirect). Set cookie `vinut-market=us` | User từ Argentina → ở lại `/` (US) |
+
+Dùng 302 (tạm thời) chứ không phải 301 (vĩnh viễn), vì cùng URL `/` redirect khác nhau tùy IP của người truy cập. Nếu dùng 301, trình duyệt hoặc CDN cache redirect vĩnh viễn → user VN sẽ luôn bị redirect đến Japan nếu cache sai.
+
+Khi user tự chọn quốc gia khác qua dropdown → cookie được cập nhật → lần sau Worker đọc cookie trước, không ghi đè bằng IP.
+
+Khi mở rộng thêm quốc gia: admin chỉ cần tạo document market mới trong CMS với isoCountryCodes phù hợp → Worker tự nhận diện IP mới.
+
+| File | Hành động |
+|---|---|
+| **worker.js** | Sửa — thêm logic IP detection + market matching + redirect + cookie |
+
+---
+
+### Bước 3 — Sản phẩm riêng cho từng quốc gia
+
+Mỗi thị trường có lineup sản phẩm khác nhau tùy thuộc vào sở thích tiêu dùng, quy định nhập khẩu, và chiến lược kinh doanh. Ví dụ: Thailand bán nhiều nước dừa, Japan chuộng matcha, Hàn Quốc có sản phẩm Aloe Vera đặc biệt. Cần cơ chế gắn sản phẩm vào market cụ thể.
+
+Thêm field `markets` vào schema product. Đây là mảng reference đến `marketConfig`. Admin khi tạo/sửa sản phẩm sẽ tick chọn quốc gia nào được bán sản phẩm này.
+
+Logic hiển thị:
+
+| Trường hợp | Kết quả |
+|---|---|
+| Product có `markets = [japan, korea]` | Chỉ hiển thị ở Japan và Korea |
+| Product không gắn market nào (mảng rỗng) | Hiển thị ở TẤT CẢ market (sản phẩm toàn cầu) |
+| User ở market `japan` | Thấy: sản phẩm gắn Japan + sản phẩm toàn cầu |
+| User ở market `brazil` (chưa cấu hình) | Fallback về US → thấy sản phẩm gắn US + toàn cầu |
+
+Cách này backward compatible: tất cả sản phẩm hiện tại không có field markets → tự động là sản phẩm toàn cầu, vẫn hiển thị bình thường.
+
+Tất cả GROQ queries sản phẩm cần được sửa để nhận thêm param `marketCode` và filter theo market.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/product.ts** | Sửa — thêm field `markets` |
+| **vncms/lib/querries.ts** | Sửa — filter queries theo market |
+| **src/Navigations/Products.tsx** | Sửa — truyền market code vào query |
+| **src/sections/PopularProducts.tsx** | Sửa — filter theo market |
+| **src/components/RelatedProducts.tsx** | Sửa — filter theo market |
+
+---
+
+### Bước 4 — Banner riêng cho từng quốc gia
+
+Banner hero (carousel trang chủ) và banner trang con cần hình ảnh phù hợp văn hóa và sản phẩm chủ lực của từng quốc gia. Hiện tại 3 slides hero hard-code trong constants với ảnh cố định.
+
+Tạo schema `heroBanner` trong CMS. Admin tạo nhiều bộ banner cho mỗi quốc gia:
+
+| Field | Mô tả |
+|---|---|
+| title | Tiêu đề trên banner |
+| topic | Chủ đề (ví dụ JUICES, COCONUT...) |
+| image | Ảnh banner (upload lên Sanity) |
+| description | Mô tả ngắn |
+| market | Reference đến marketConfig — banner này thuộc quốc gia nào |
+| order | Thứ tự hiển thị trong carousel |
+
+Logic hiển thị:
+
+| Trường hợp | Kết quả |
+|---|---|
+| Market Japan có 4 banners riêng | Hiển thị 4 banners đó |
+| Market Korea chưa có banner riêng | Fallback: lấy banners của US (default market) |
+| Market US (default) | Luôn có banners |
+
+Tương tự, banner tiêu đề trên các trang con (Products, Blog, Contact...) cũng cần hỗ trợ ảnh khác nhau cho từng quốc gia. Có thể thêm vào schema `pageSlug` (Phase 1) field ảnh banner header cho mỗi market.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/heroBanner.ts** | Tạo mới — schema banner |
+| **vncms/schemaTypes/index.ts** | Sửa — đăng ký |
+| **vncms/lib/querries.ts** | Sửa — query banner theo market |
+| **src/Navigations/Landing.tsx** | Sửa — fetch banners từ Sanity thay constants |
+| **src/sections/Hero.tsx** | Sửa — nhận data từ Sanity |
+| **src/components/Layout.tsx** | Sửa — banner trang con theo market |
+| **src/constants/index.tsx** | Sửa — loại bỏ hard-code slides |
+
+---
+
+### Bước 5 — Routing động và mở rộng i18n
+
+Routing hiện tạo routes từ mảng `MARKET_LIST` hard-code 2 entries. Khi admin thêm quốc gia mới trong CMS, hệ thống phải tự tạo routes tương ứng mà không cần sửa code.
+
+| Hiện tại | Sau khi sửa |
+|---|---|
+| `MARKET_LIST` hard-code 2 markets | Fetch từ Sanity API khi app init |
+| Routes cố định cho US + Thailand | Tạo routes động cho N quốc gia |
+| MarketDropdown hiển thị 2 options | Hiển thị tất cả markets active từ CMS |
+| 2 file translation (us.ts, thailand.ts) | Dynamic import theo market code, fallback US English |
+
+Về i18n: mỗi market mới cần file translation tương ứng trong `src/i18n/`. Tuy nhiên không bắt buộc — nếu chưa có file translation cho market đó, hệ thống tự fallback về US English. Khi team dịch xong, chỉ cần thêm file translation → ngôn ngữ tự áp dụng.
+
+Cơ chế fallback đa tầng cho translation:
+
+| Ưu tiên | Nguồn | Ví dụ market Japan |
+|---|---|---|
+| 1 | File translation theo market code | `i18n/japan.ts` nếu tồn tại |
+| 2 | US English (mặc định) | `i18n/us.ts` luôn có |
+
+Nếu Sanity API lỗi khi fetch markets → app fallback về chạy US only, đảm bảo website không bao giờ trắng trang.
+
+| File | Hành động |
+|---|---|
+| **src/App.tsx** | Sửa — fetch markets từ Sanity → tạo routes động |
+| **src/context/MarketContext.tsx** | Sửa — hỗ trợ dynamic markets |
+| **src/components/MarketDropdown.tsx** | Sửa — hiển thị từ CMS data |
+| **src/i18n/index.ts** | Sửa — dynamic import translation files |
+| **src/i18n/[market].ts** | Tạo mới khi có market mới — file dịch |
+
+---
+
+### Tóm tắt luồng toàn cầu
+
+Kịch bản: admin muốn thêm market Japan.
+
+| Bước | Ai làm | Ở đâu | Kết quả |
+|---|---|---|---|
+| 1 | Admin | CMS → tạo document marketConfig: code=`japan`, urlPrefix=`japan`, isoCountryCodes=`["JP"]` | Market Japan xuất hiện trong hệ thống |
+| 2 | Admin | CMS → tạo heroBanner cho Japan (upload ảnh phù hợp thị trường Nhật) | Banner riêng cho Japan |
+| 3 | Admin | CMS → sửa products → gắn Japan vào field markets | Sản phẩm phù hợp thị trường Nhật |
+| 4 | Dev (optional) | Tạo file `src/i18n/japan.ts` với bản dịch tiếng Nhật | UI tiếng Nhật. Nếu bỏ qua → dùng English |
+| 5 | Tự động | User IP từ Nhật truy cập → Worker detect `JP` → redirect `/japan/` | User Nhật thấy sản phẩm + banner + ngôn ngữ Nhật |
+
+Không cần deploy lại. Không cần sửa code (trừ bước 4 nếu muốn dịch UI).
+
+---
+
+## Phase 1: Slug, Redirect, Sitemap
+
+### Bước 1 — Hàm slug chuẩn SEO
+
+Slug mặc định Sanity chỉ lowercase + thay space bằng `-`. Chưa xử lý dấu tiếng Việt, ký tự đặc biệt, hoặc slug quá dài.
+
+Viết hàm slugify dùng chung: lowercase → bỏ dấu (`ă→a`, `ê→e`, `ü→u`...) → thay space/ký tự đặc biệt bằng `-` → loại `-` liên tiếp → trim đầu/cuối.
+
+| Input | Output |
+|---|---|
+| `Nước Ép Trái Cây Tươi @2024` | `nuoc-ep-trai-cay-tuoi-2024` |
+| `VINUT Coconut Water 500ml` | `vinut-coconut-water-500ml` |
+| `お茶 Matcha Green Tea` | `matcha-green-tea` |
+
+| File | Hành động |
+|---|---|
+| **vncms/lib/slugify.ts** | Tạo mới |
+
+### Bước 2 — Áp dụng slug cho schemas
+
+Thay slugify mặc định bằng hàm chuẩn SEO ở tất cả schemas có field slug.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/post.ts** | Sửa — dùng custom slugify |
+| **vncms/schemaTypes/product.ts** | Sửa |
+| **vncms/schemaTypes/productcategory.ts** | Sửa |
+| **vncms/schemaTypes/faq.ts** | Sửa |
+| **vncms/schemaTypes/history.ts** | Sửa |
+
+### Bước 3 — Slug trang tĩnh từ CMS
+
+Trang About Us, Contact Us... hiện slug hard-code trong router. Tạo schema `pageSlug` cho admin tùy chỉnh slug — mỗi quốc gia có thể có slug khác (ví dụ `/about-us` cho US, `/gioi-thieu` cho VN, `/about` cho Japan).
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/pageSlug.ts** | Tạo mới |
+| **vncms/schemaTypes/index.ts** | Sửa — đăng ký |
+
+### Bước 4 — Redirect 301/404
+
+Tạo schema `redirect` trong CMS:
+
+| Field | Mô tả | Ví dụ |
+|---|---|---|
+| fromPath | URL cũ | `/old-product` |
+| toPath | URL mới | `/products/new-product` |
+| statusCode | HTTP status | `301` |
+| isActive | Bật/tắt | `true` |
+
+Worker kiểm tra redirect rules trước SPA fallback (cache rules 1 giờ). Trang 404 thêm meta `noindex` + gợi ý trang chính.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/redirect.ts** | Tạo mới |
+| **vncms/schemaTypes/index.ts** | Sửa |
+| **vncms/lib/querries.ts** | Sửa — query redirects |
+| **worker.js** | Sửa — logic redirect |
+| **src/Navigations/NotFound404.tsx** | Sửa — noindex + gợi ý |
+
+### Bước 5 — Sitemap.xml tự động
+
+Worker xử lý 6 routes sitemap, fetch data từ Sanity, generate XML động, cache 1 giờ:
+
+| Route | Nội dung | Data source |
+|---|---|---|
+| `/sitemap.xml` | Sitemap index | Trỏ đến 5 sub-sitemaps |
+| `/sitemap-pages.xml` | Trang tĩnh cho TẤT CẢ quốc gia | pageSlug + markets từ CMS |
+| `/sitemap-posts.xml` | Tất cả bài viết | `*[_type=="post"]` |
+| `/sitemap-products.xml` | Tất cả sản phẩm | `*[_type=="product"]` |
+| `/sitemap-categories.xml` | Danh mục sản phẩm | `*[_type=="productcategory"]` |
+| `/image-sitemap.xml` | Tổng hợp ảnh | imageUrl từ posts + products |
+
+Mỗi URL kèm `hreflang` alternate links cho tất cả markets active — đảm bảo Google biết phiên bản quốc gia nào tương ứng. Khi admin thêm market mới → sitemap tự bổ sung hreflang links sau tối đa 1 giờ.
+
+| File | Hành động |
+|---|---|
+| **src/utils/sitemap-builder.ts** | Tạo mới — helper tạo XML |
+| **worker.js** | Sửa — route handlers sitemap |
+| **vncms/schemaTypes/post.ts** | Sửa — thêm field lastModified |
+| **public/robots.txt** | Tạo mới |
+
+---
+
+## Phase 2: Schema Markup
+
+Schema markup (JSON-LD) giúp Google hiểu cấu trúc nội dung → hiện rich snippets (sao đánh giá, FAQ, breadcrumb...) → tăng CTR.
+
+### Bước 1 — Hàm generate JSON-LD
+
+Tạo utility functions nhận dữ liệu → trả về object JSON-LD.
+
+| Schema Type | Trang | Dữ liệu cần |
+|---|---|---|
+| Article | BlogPost | title, author, publishedAt, image, description |
+| Product | ProductPost | name, description, image, category, brand, reviews |
+| BreadcrumbList | Tất cả trang con | Path: Home → Section → Tên trang |
+| FAQPage | Faqs | Tất cả question + answer |
+| VideoObject | AboutUs | Video about-us.mp4, title, description |
+| AggregateRating | Landing | Trung bình rating từ reviews |
+| NewsArticle | BlogPost | Tương tự Article (cho tin tức) |
+
+### Bước 2 — Component render và tích hợp
+
+Tạo component `JsonLd` render `<script type="application/ld+json">` vào `<head>`. Gắn vào các trang.
+
+| File | Hành động |
+|---|---|
+| **src/utils/schema-markup.ts** | Tạo mới |
+| **src/components/JsonLd.tsx** | Tạo mới |
+| **src/Navigations/BlogPost.tsx** | Sửa — Article + Breadcrumb |
+| **src/Navigations/ProductPost.tsx** | Sửa — Product + Breadcrumb |
+| **src/Navigations/Faqs.tsx** | Sửa — FAQPage |
+| **src/Navigations/AboutUs.tsx** | Sửa — VideoObject |
+| **src/Navigations/Landing.tsx** | Sửa — AggregateRating |
+
+---
+
+## Phase 3: Module Viết Bài Chuẩn SEO
+
+### Bước 1 — Mở rộng SEO panel
+
+| Field mới | Mô tả |
+|---|---|
+| focusKeyword | Từ khóa chính muốn SEO |
+| canonicalUrl | URL canonical tùy chỉnh (optional) |
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/seoPanel.ts** | Sửa |
+
+### Bước 2 — SEO Checklist trong Sanity Studio
+
+Tạo custom component hiển thị real-time khi soạn bài, 11 tiêu chí:
+
+| # | Tiêu chí | Điều kiện Pass |
+|---|---|---|
+| 1 | SEO title chứa focus keyword | seoTitle chứa focusKeyword |
+| 2 | Độ dài SEO title | 30–60 ký tự |
+| 3 | Meta description chứa keyword | seoDescription chứa focusKeyword |
+| 4 | Độ dài meta description | 80–160 ký tự |
+| 5 | Có OG image | ogImage không null |
+| 6 | Slug chứa keyword | slug.current chứa keyword |
+| 7 | Body có heading H2/H3 | Scan blockContent có style h2/h3 |
+| 8 | Tất cả ảnh có ALT | Scan image blocks đều có alt |
+| 9 | Có internal links | Link annotations có href bắt đầu `/` |
+| 10 | Độ dài body | Trên 300 từ |
+| 11 | Keyword ở đoạn đầu | Block text đầu tiên chứa keyword |
+
+Hiển thị pass/warning/fail + điểm tổng /100.
+
+| File | Hành động |
+|---|---|
+| **vncms/components/SeoChecklist.tsx** | Tạo mới |
+| **vncms/schemaTypes/post.ts** | Sửa — tích hợp checklist |
+| **vncms/schemaTypes/product.ts** | Sửa — tích hợp checklist |
 
 ---
 
 ## Phase 4: Internal Link & Tags
 
-### 4.1 Tags
+### Bước 1 — Tags
 
-**Bước 1** — Tạo [NEW] `vncms/schemaTypes/tag.ts`
-```ts
-// document: name (string), slug (slug from name)
-```
+Tạo schema `tag` (name + slug). Thêm field `tags` vào post và product. Component TagList hiển thị pills, click → filter.
 
-**Bước 2** — Register `tag` trong [schemaTypes/index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts)
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/tag.ts** | Tạo mới |
+| **vncms/schemaTypes/index.ts** | Sửa |
+| **vncms/schemaTypes/post.ts** | Sửa — thêm field tags |
+| **vncms/schemaTypes/product.ts** | Sửa — thêm field tags |
+| **vncms/lib/querries.ts** | Sửa — queries theo tag |
+| **src/components/TagList.tsx** | Tạo mới |
+| **src/Navigations/BlogPost.tsx** | Sửa — hiển thị TagList |
+| **src/Navigations/ProductPost.tsx** | Sửa — hiển thị TagList |
 
-**Bước 3** — Sửa [post.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/post.ts) — thêm field:
-```ts
-defineField({
-  name: 'tags',
-  title: 'Tags',
-  type: 'array',
-  of: [{type: 'reference', to: {type: 'tag'}}],
-})
-```
+### Bước 2 — Bài viết liên quan cải tiến
 
-**Bước 4** — Sửa [product.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/product.ts) — thêm field `tags` tương tự
+Thay "Recent Articles" ở BlogPost bằng "Related Articles" — ưu tiên tags chung, fallback recent.
 
-**Bước 5** — Thêm GROQ queries vào [querries.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/lib/querries.ts):
-```groq
-// Bài viết liên quan theo tags chung
-RELATED_POSTS_BY_TAGS = *[_type=="post" && slug.current != $currentSlug 
-  && count(tags[@._ref in $tagIds]) > 0] | order(publishedAt desc)[0..5]
-  { title, slug, "imageUrl": mainImage.asset->url, publishedAt }
+| File | Hành động |
+|---|---|
+| **src/Navigations/BlogPost.tsx** | Sửa |
 
-// Fetch posts theo tag slug
-POSTS_BY_TAG = *[_type=="post" && $tagSlug in tags[]->slug.current]
-  { title, slug, "imageUrl": mainImage.asset->url, publishedAt }
-```
+### Bước 3 — Gợi ý nội link trong CMS
 
-**Bước 6** — Tạo [NEW] `src/components/TagList.tsx`
-- Nhận `tags[]` → render danh sách tag pills
-- Click tag → navigate đến `/blog?tag=<slug>`
+Panel sidebar: khi edit bài, tự query bài viết/sản phẩm match focus keyword/title → gợi ý link cho admin chèn.
 
-**Bước 7** — Sửa [BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx) — thêm `<TagList tags={post.tags} />`
-
-**Bước 8** — Sửa [ProductPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/ProductPost.tsx) — thêm `<TagList tags={product.tags} />`
-
-### 4.2 Bài viết liên quan cải tiến
-
-**Bước 9** — Sửa [BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx)
-- Thay "Recent Articles" → fetch `RELATED_POSTS_BY_TAGS` (dựa trên tags chung)
-- Fallback: nếu không đủ related → bổ sung bằng recent articles
-
-### 4.3 Gợi ý chèn nội link
-
-**Bước 10** — Tạo [NEW] `vncms/components/InternalLinkSuggestion.tsx`
-- Custom Sanity Studio panel (document view pane)
-- Khi đang edit bài viết, panel hiển thị danh sách bài viết/sản phẩm có title/tags liên quan đến `focusKeyword` hoặc title hiện tại
-- Mỗi item hiển thị: tên + URL → admin copy-paste link vào body
-- Query: `*[_type in ["post","product"] && (title match $keyword || $keyword in tags[]->name)]`
-
-**Bước 11** — Đăng ký panel trong [sanity.config.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/sanity.config.ts) qua `structureTool` views
+| File | Hành động |
+|---|---|
+| **vncms/components/InternalLinkSuggestion.tsx** | Tạo mới |
+| **vncms/sanity.config.ts** | Sửa — đăng ký panel |
 
 ---
 
 ## Phase 5: Hình Ảnh — Tự Sinh ALT
 
-**Bước 1** — Sửa [blockContent.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/blockContent.ts)
-- Thêm field `alt` vào image member:
-```ts
-defineArrayMember({
-  type: 'image',
-  options: { hotspot: true },
-  fields: [
-    { name: 'alt', title: 'Alt Text', type: 'string',
-      description: 'Mô tả ảnh cho SEO. Nếu để trống sẽ tự sinh từ tên file.' }
-  ],
-})
-```
-- Thêm validation warning nếu `alt` trống
+### Bước 1 — Thêm field ALT vào images trong editor
 
-**Bước 2** — Tạo [NEW] `src/utils/auto-alt.ts`
-```ts
-export function generateAlt(imageUrl: string, contextTitle?: string): string {
-  // Tách filename từ URL → bỏ extension → thay - _ bằng space → capitalize
-  // Nếu có contextTitle → append: "filename - contextTitle"
-}
-```
+Thêm field `alt` cho image type trong blockContent. Validation warning nếu trống.
 
-**Bước 3** — Sửa [BlogPostBody.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/components/BlogPostBody.tsx)
-- Trong image serializer: nếu không có `alt` field → gọi `generateAlt(url, parentTitle)`
+### Bước 2 — Hàm auto-generate ALT
 
-**Bước 4** — Kiểm tra tất cả component có `<img>` (Nav, Footer, Hero, ProductCard, ArticleCard, StoreCard...)
-- Đảm bảo mọi `<img>` có `alt` attribute có nghĩa (không phải chuỗi rỗng)
+| Input | Output |
+|---|---|
+| URL: `coconut-water-fresh.jpg`, title: `Benefits of Coconut` | `Coconut Water Fresh - Benefits of Coconut` |
+| URL: `tropical-juice-500ml.jpg`, title: null | `Tropical Juice 500ml` |
+
+### Bước 3 — Áp dụng khi render
+
+BlogPostBody: nếu image có alt → dùng, nếu không → auto-generate. Rà soát tất cả `<img>` tags.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/blockContent.ts** | Sửa — thêm field alt |
+| **src/utils/auto-alt.ts** | Tạo mới |
+| **src/components/BlogPostBody.tsx** | Sửa — auto ALT fallback |
 
 ---
 
 ## Phase 6: Social Network
 
-### 6.1 Facebook Comments
+### Bước 1 — Facebook Comments
 
-**Bước 1** — Sửa [index.html](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/index.html)
-- Thêm `<meta property="fb:app_id" content="YOUR_FB_APP_ID" />` vào `<head>`
-- Thêm `<div id="fb-root"></div>` sau `<body>`
+Facebook JS SDK async vào index.html. Component render comments box. Gắn vào BlogPost và ProductPost.
 
-**Bước 2** — Tạo [NEW] `src/components/FacebookComments.tsx`
-```tsx
-// Load Facebook JS SDK (async, chỉ load 1 lần)
-// Render <div class="fb-comments" data-href={url} data-numposts={numPosts} />
-// Gọi FB.XFBML.parse() sau khi mount
-```
+### Bước 2 — Share Buttons
 
-**Bước 3** — Sửa [BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx) — thêm `<FacebookComments url={canonicalUrl} numPosts={5} />` dưới nội dung
+| Platform | Cách share |
+|---|---|
+| Facebook | URL sharer.php |
+| Twitter/X | URL intent/tweet |
+| LinkedIn | URL shareArticle |
+| WhatsApp | URL wa.me |
+| Copy Link | navigator.clipboard + toast |
 
-**Bước 4** — Sửa [ProductPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/ProductPost.tsx) — thêm `<FacebookComments url={canonicalUrl} numPosts={5} />`
+Mobile: dùng Web Share API nếu hỗ trợ.
 
-### 6.2 Share Buttons
-
-**Bước 5** — Tạo [NEW] `src/components/ShareButtons.tsx`
-- Props: `url`, `title`, `description`
-- Các nút share:
-  - **Facebook**: `https://www.facebook.com/sharer/sharer.php?u=${url}`
-  - **Twitter/X**: `https://twitter.com/intent/tweet?url=${url}&text=${title}`
-  - **LinkedIn**: `https://www.linkedin.com/shareArticle?mini=true&url=${url}&title=${title}`
-  - **WhatsApp**: `https://wa.me/?text=${title} ${url}`
-  - **Copy Link**: `navigator.clipboard.writeText(url)` + toast thông báo
-- Mobile: dùng `navigator.share()` API nếu browser hỗ trợ
-
-**Bước 6** — Sửa [BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx) + [ProductPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/ProductPost.tsx) — thêm `<ShareButtons />` ở đầu hoặc cuối bài
+| File | Hành động |
+|---|---|
+| **index.html** | Sửa — FB SDK |
+| **src/components/FacebookComments.tsx** | Tạo mới |
+| **src/components/ShareButtons.tsx** | Tạo mới |
+| **src/Navigations/BlogPost.tsx** | Sửa |
+| **src/Navigations/ProductPost.tsx** | Sửa |
 
 ---
 
 ## Phase 7: View Counting
 
-**Bước 1** — Tạo [NEW] `vncms/schemaTypes/viewCount.ts`
-```ts
-// document: contentType (string: "post"|"product"), contentSlug (string), 
-//           views (number, default 0), lastViewed (datetime)
-```
+### Bước 1 — Schema + API
 
-**Bước 2** — Register schema + thêm GROQ query:
-```groq
-VIEW_COUNT_BY_SLUG = *[_type=="viewCount" && contentType==$type && contentSlug==$slug][0]{ views }
-TOP_VIEWED = *[_type=="viewCount" && contentType==$type] | order(views desc)[0..9]{ contentSlug, views }
-```
+Schema `viewCount`: contentType, contentSlug, views, lastViewed. Worker API `POST /api/view` → atomic increment.
 
-**Bước 3** — Sửa [worker.js](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/worker.js)
-- Thêm route `POST /api/view` → nhận body `{ type, slug }`
-- Logic:
-  1. Tạo `_id` = `viewcount-${type}-${slug}`
-  2. Dùng Sanity `patch(_id).setIfMissing({views:0}).inc({views:1}).set({lastViewed: now})` 
-  3. Trả về `{ views: newCount }`
+### Bước 2 — Frontend
 
-**Bước 4** — Tạo [NEW] `src/hooks/useViewCount.ts`
-```ts
-// Khi mount: check localStorage "viewed-{type}-{slug}" 
-// Nếu chưa viewed (hoặc viewed >24h trước) → POST /api/view → lưu localStorage
-// Tránh count trùng khi user refresh
-```
+Hook `useViewCount`: check localStorage 24h → gọi API. Component `ViewCounter` hiển thị lượt xem.
 
-**Bước 5** — Tạo [NEW] `src/components/ViewCounter.tsx`
-- Hiển thị 👁️ {views} lượt xem (fetch từ Sanity hoặc từ response của useViewCount)
-
-**Bước 6** — Sửa [BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx) — gọi `useViewCount('post', slug)` + hiển thị `<ViewCounter />`
-
-**Bước 7** — Sửa [ProductPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/ProductPost.tsx) — gọi `useViewCount('product', slug)` + hiển thị `<ViewCounter />`
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/viewCount.ts** | Tạo mới |
+| **vncms/schemaTypes/index.ts** | Sửa |
+| **vncms/lib/querries.ts** | Sửa |
+| **worker.js** | Sửa — API endpoint |
+| **src/hooks/useViewCount.ts** | Tạo mới |
+| **src/components/ViewCounter.tsx** | Tạo mới |
+| **src/Navigations/BlogPost.tsx** | Sửa |
+| **src/Navigations/ProductPost.tsx** | Sửa |
 
 ---
 
-## Phase 8: SEO Analytics Integration
+## Phase 8: SEO Analytics
 
-**Bước 1** — Tạo [NEW] `vncms/schemaTypes/analyticsConfig.ts`
-```ts
-// Singleton document: 
-//   gaTrackingId (string) → GA4 Measurement ID (G-XXXXXXX)
-//   gscVerification (string) → Google Search Console verification code
-//   gtmContainerId (string) → GTM Container ID (GTM-XXXXXXX)
-//   fbPixelId (string, optional) → Facebook Pixel ID
-```
+### Bước 1 — Cấu hình trong CMS
 
-**Bước 2** — Register schema trong [schemaTypes/index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts)
+Schema singleton `analyticsConfig`:
 
-**Bước 3** — Thêm GROQ query:
-```groq
-ANALYTICS_CONFIG = *[_type=="analyticsConfig"][0]{ gaTrackingId, gscVerification, gtmContainerId, fbPixelId }
-```
+| Field | Mô tả | Ví dụ |
+|---|---|---|
+| gaTrackingId | GA4 Measurement ID | `G-XXXXXXX` |
+| gscVerification | Google Search Console code | Chuỗi meta tag |
+| gtmContainerId | GTM Container ID | `GTM-XXXXXXX` |
+| fbPixelId | Facebook Pixel (optional) | `123456789` |
 
-**Bước 4** — Sửa [worker.js](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/worker.js)
-- Khi trả về [index.html](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/index.html) (SPA fallback):
-  1. Fetch `ANALYTICS_CONFIG` từ Sanity (cache 1 giờ)
-  2. Read [index.html](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/index.html) content → inject vào `<head>`:
-     - GSC: `<meta name="google-site-verification" content="${gscVerification}" />`
-     - GTM: GTM script snippet
-     - GA4: gtag.js script
-     - FB Pixel: fbq script (nếu có)
-  3. Trả về modified HTML
+### Bước 2 — Worker inject scripts
 
-> [!NOTE]
-> Cách này cho phép admin thay đổi tracking IDs từ CMS mà không cần redeploy.
+Worker fetch config (cache 1 giờ) → inject scripts vào `<head>` của index.html trước khi trả response. Admin đổi ID trong CMS → tự apply.
+
+| File | Hành động |
+|---|---|
+| **vncms/schemaTypes/analyticsConfig.ts** | Tạo mới |
+| **vncms/schemaTypes/index.ts** | Sửa |
+| **vncms/lib/querries.ts** | Sửa |
+| **worker.js** | Sửa — inject scripts |
 
 ---
 
 ## Phase 9: Module Kiểm Tra Lỗi Bài Viết
 
-**Bước 1** — Tạo [NEW] `vncms/components/ContentAudit.tsx`
-- Custom Sanity Studio tool (hiển thị như một tab riêng)
-- Fetch tất cả `post` + `product` documents
-- Quét từng document, đánh dấu các lỗi:
+Tool "Content Audit" trong Sanity Studio — quét tất cả post + product:
 
-| Lỗi | Cách detect |
+| Loại lỗi | Cách detect | Mức độ |
+|---|---|---|
+| Thiếu ALT ảnh | Scan body → image blocks có alt trống | Nghiêm trọng |
+| Thiếu meta title | seo.seoTitle trống | Nghiêm trọng |
+| Thiếu meta description | seo.seoDescription trống | Nghiêm trọng |
+| Meta title quá dài/ngắn | Ngoài 30–60 ký tự | Cảnh báo |
+| Meta description quá dài/ngắn | Ngoài 80–160 ký tự | Cảnh báo |
+| Thiếu focus keyword | seo.focusKeyword trống | Cảnh báo |
+| Thiếu keywords | seo.seoKeywords length < 3 | Cảnh báo |
+| Thiếu slug | slug.current undefined | Nghiêm trọng |
+| Thiếu OG Image | seo.ogImage null | Cảnh báo |
+| Dữ liệu thiếu cho schema | Article thiếu author, Product thiếu description | Cảnh báo |
+
+Dashboard: bao nhiêu OK / cần sửa / lỗi nghiêm trọng. Bộ lọc theo type + lỗi. Click → mở editor sửa.
+
+| File | Hành động |
 |---|---|
-| Thiếu ALT ảnh | Scan `body` (blockContent) → tìm image blocks có `alt` trống/undefined |
-| Thiếu Meta Title | `seo.seoTitle` trống |
-| Thiếu Meta Description | `seo.seoDescription` trống |
-| Meta Title quá dài/ngắn | Ngoài khoảng 30–60 ký tự |
-| Meta Description quá dài/ngắn | Ngoài khoảng 80–160 ký tự |
-| Thiếu Focus Keyword | `seo.focusKeyword` trống |
-| Thiếu Keywords | `seo.seoKeywords` trống hoặc <3 items |
-| Thiếu Slug | `slug.current` undefined/empty |
-| Thiếu OG Image | `seo.ogImage` null |
-| Lỗi Schema data | Article thiếu author/publishedAt, Product thiếu description... |
-
-**Bước 2** — Tạo [NEW] `vncms/components/ContentAuditDashboard.tsx`
-- Bảng tổng hợp: ✅ X tốt / ⚠️ Y cần sửa / ❌ Z lỗi nghiêm trọng
-- Bộ lọc: theo loại content (post/product), theo loại lỗi
-- Click vào dòng lỗi → mở document editor tương ứng trong Sanity
-
-**Bước 3** — Sửa [sanity.config.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/sanity.config.ts)
-- Đăng ký `ContentAudit` tool vào Sanity Studio plugins
-
----
-
-## Tóm tắt files
-
-### Files mới
-
-| File | Phase |
-|---|---|
-| `vncms/lib/slugify.ts` | 1 |
-| `vncms/schemaTypes/pageSlug.ts` | 1 |
-| `vncms/schemaTypes/redirect.ts` | 1 |
-| `src/utils/sitemap-builder.ts` | 1 |
-| `public/robots.txt` | 1 |
-| `src/utils/schema-markup.ts` | 2 |
-| `src/components/JsonLd.tsx` | 2 |
-| `vncms/components/SeoChecklist.tsx` | 3 |
-| `vncms/schemaTypes/tag.ts` | 4 |
-| `src/components/TagList.tsx` | 4 |
-| `vncms/components/InternalLinkSuggestion.tsx` | 4 |
-| `src/utils/auto-alt.ts` | 5 |
-| `src/components/FacebookComments.tsx` | 6 |
-| `src/components/ShareButtons.tsx` | 6 |
-| `vncms/schemaTypes/viewCount.ts` | 7 |
-| `src/hooks/useViewCount.ts` | 7 |
-| `src/components/ViewCounter.tsx` | 7 |
-| `vncms/schemaTypes/analyticsConfig.ts` | 8 |
-| `vncms/components/ContentAudit.tsx` | 9 |
-| `vncms/components/ContentAuditDashboard.tsx` | 9 |
-
-### Files cần sửa
-
-| File | Phases |
-|---|---|
-| [vncms/schemaTypes/post.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/post.ts) | 1, 3, 4 |
-| [vncms/schemaTypes/product.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/product.ts) | 1, 3, 4 |
-| [vncms/schemaTypes/productcategory.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/productcategory.ts) | 1 |
-| [vncms/schemaTypes/seoPanel.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/seoPanel.ts) | 3 |
-| [vncms/schemaTypes/blockContent.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/blockContent.ts) | 5 |
-| [vncms/schemaTypes/index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts) | 1, 4, 7, 8 |
-| [vncms/lib/querries.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/lib/querries.ts) | 1, 4, 7, 8 |
-| [vncms/sanity.config.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/sanity.config.ts) | 4, 9 |
-| [worker.js](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/worker.js) | 1, 7, 8 |
-| [index.html](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/index.html) | 6 |
-| [src/Navigations/BlogPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/BlogPost.tsx) | 2, 4, 6, 7 |
-| [src/Navigations/ProductPost.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/ProductPost.tsx) | 2, 4, 6, 7 |
-| [src/Navigations/Faqs.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/Faqs.tsx) | 2 |
-| [src/Navigations/AboutUs.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/AboutUs.tsx) | 2 |
-| [src/Navigations/Landing.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/Landing.tsx) | 2 |
-| [src/Navigations/NotFound404.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/NotFound404.tsx) | 1 |
-| [src/components/BlogPostBody.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/components/BlogPostBody.tsx) | 5 |
-
----
-
-## Kiểm tra sau hoàn thành
-
-1. **Sitemap** — Truy cập `/sitemap.xml` → xác nhận XML hợp lệ, chứa tất cả URLs
-2. **Schema Markup** — Paste URL vào [Google Rich Results Test](https://search.google.com/test/rich-results) → xác nhận pass
-3. **Redirect** — Tạo redirect rule CMS → `curl -I <url-cũ>` → xác nhận status 301
-4. **SEO Checklist** — Mở Sanity Studio → tạo bài → kiểm tra checklist realtime
-5. **Tags** — Tạo tag CMS → gắn vào bài → xác nhận hiển thị + filter
-6. **Auto ALT** — Upload ảnh không ALT → xác nhận ALT tự sinh khi render
-7. **Facebook Comments** — Mở BlogPost → xác nhận FB comments hiển thị
-8. **Share Buttons** — Click share → xác nhận đúng URL
-9. **View Count** — Truy cập trang → refresh → xác nhận view tăng  
-10. **Analytics** — Nhập GA4 ID vào CMS → kiểm tra GA4 Realtime report
-11. **Content Audit** — Mở Sanity Studio → tab Content Audit → xác nhận quét đúng lỗi
+| **vncms/components/ContentAudit.tsx** | Tạo mới |
+| **vncms/components/ContentAuditDashboard.tsx** | Tạo mới |
+| **vncms/sanity.config.ts** | Sửa — đăng ký tool |
