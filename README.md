@@ -420,3 +420,122 @@
 | date | Date | Default now | Ngày ghi log |
 | createdAt | Date | Auto (timestamps) | Thời điểm tạo |
 | updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+# Danh sách API Backend (1 bảng tổng hợp)
+
+| Method | Endpoint | Xác thực | Chức năng |
+|---|---|---|---|
+| POST | /api/ai/chat | Có (Bearer Token) | Chat AI |
+| GET | /api/ai/chat/history | Có (Bearer Token) | Lịch sử chat AI |
+| POST | /api/ai/medication/parse | Có (Bearer Token) | Parse đơn thuốc từ ảnh/nội dung |
+| POST | /api/ai/meal/estimate | Có (Bearer Token) | Ước tính calo món ăn |
+| POST | /api/ai/disease/identify | Có (Bearer Token) | Nhận diện bệnh từ mô tả |
+| POST | /api/ai/health/recommendations | Có (Bearer Token) | Gợi ý sức khỏe cá nhân hóa |
+| POST | /api/ai/report/analyze | Có (Bearer Token) | Phân tích báo cáo sức khỏe |
+| POST | /api/ai/medication/suggest | Có (Bearer Token) | Gợi ý thuốc cho bác sĩ |
+| POST | /api/ai/medication/interactions | Có (Bearer Token) | Kiểm tra tương tác thuốc |
+| POST | /api/alerts/analyze-all | Có (Bearer Token) | Phân tích cảnh báo toàn bộ bệnh nhân bác sĩ |
+| POST | /api/alerts/analyze/:patientId | Có (Bearer Token) | Phân tích cảnh báo 1 bệnh nhân |
+| GET | /api/alerts/doctor/summary | Có (Bearer Token) | Tổng hợp cảnh báo cho bác sĩ |
+| GET | /api/alerts/patient/:patientId | Có (Bearer Token) | Lấy cảnh báo của bệnh nhân |
+| PATCH | /api/alerts/:alertId/read | Có (Bearer Token) | Đánh dấu 1 cảnh báo đã đọc |
+| PATCH | /api/alerts/patient/:patientId/read-all | Có (Bearer Token) | Đánh dấu tất cả cảnh báo đã đọc |
+| POST | /api/alerts/sos | Có (Bearer Token) | Gửi SOS khẩn cấp |
+| POST | /api/appointments | Có (Bearer Token) | Tạo lịch hẹn |
+| GET | /api/appointments | Có (Bearer Token) | Lấy danh sách lịch hẹn |
+| PATCH | /api/appointments/:id | Có (Bearer Token) | Cập nhật lịch hẹn |
+| DELETE | /api/appointments/:id | Có (Bearer Token) | Xóa lịch hẹn |
+| POST | /api/auth/register | Không | Đăng ký tài khoản |
+| POST | /api/auth/send-register-otp | Không | Gửi OTP đăng ký |
+| POST | /api/auth/verify-register-otp | Không | Xác thực OTP đăng ký |
+| POST | /api/auth/login | Không | Đăng nhập |
+| POST | /api/auth/forgot-password | Không | Yêu cầu quên mật khẩu |
+| POST | /api/auth/verify-forgot-otp | Không | Xác thực OTP quên mật khẩu |
+| POST | /api/auth/reset-password | Không | Đặt lại mật khẩu |
+| GET | /api/auth/profile | Có (Bearer Token) | Lấy hồ sơ người dùng hiện tại |
+| POST | /api/auth/change-password | Có (Bearer Token) | Đổi mật khẩu |
+| POST | /api/auth/delete-account | Có (Bearer Token) | Xóa tài khoản |
+| POST | /api/caregiver/link/request | Có (Bearer Token) | Tạo yêu cầu liên kết caregiver |
+| POST | /api/caregiver/link/accept | Có (Bearer Token) | Chấp nhận mã liên kết |
+| GET | /api/caregiver/requests | Có (Bearer Token) | Danh sách yêu cầu caregiver |
+| POST | /api/caregiver/requests/respond | Có (Bearer Token) | Phản hồi yêu cầu caregiver |
+| GET | /api/caregiver/patients | Có (Bearer Token) | Danh sách bệnh nhân của caregiver |
+| GET | /api/caregiver/patients/:patientId | Có (Bearer Token) | Chi tiết bệnh nhân |
+| GET | /api/caregiver/patients/:patientId/today-status | Có (Bearer Token) | Trạng thái hôm nay của bệnh nhân |
+| GET | /api/caregiver/alerts | Có (Bearer Token) | Lấy cảnh báo caregiver |
+| PATCH | /api/caregiver/alerts/:alertId/read | Có (Bearer Token) | Đánh dấu cảnh báo đã đọc |
+| GET | /api/caregiver/patients/:patientId/medications/timeline | Có (Bearer Token) | Timeline dùng thuốc |
+| GET | /api/caregiver/patients/:patientId/medications/week-history | Có (Bearer Token) | Lịch sử thuốc theo tuần |
+| GET | /api/caregiver/patients/:patientId/medications/adherence | Có (Bearer Token) | Mức độ tuân thủ thuốc |
+| GET | /api/caregiver/patients/:patientId/health/daily | Có (Bearer Token) | Tóm tắt sức khỏe ngày |
+| GET | /api/caregiver/patients/:patientId/appointments | Có (Bearer Token) | Lịch hẹn bệnh nhân |
+| GET | /api/caregiver/patients/:patientId/notes | Có (Bearer Token) | Danh sách ghi chú chăm sóc |
+| POST | /api/caregiver/patients/:patientId/notes | Có (Bearer Token) | Tạo ghi chú chăm sóc |
+| GET | /api/caregiver/patients/:patientId/location | Có (Bearer Token) | Trạng thái vị trí bệnh nhân |
+| GET | /api/caregiver/patients/:patientId/emergency-contacts | Có (Bearer Token) | Liên hệ khẩn cấp bệnh nhân |
+| GET | /api/caregiver/patients/:patientId/tasks | Có (Bearer Token) | Danh sách tác vụ bệnh nhân |
+| POST | /api/caregiver/patients/:patientId/tasks/:taskId/notify | Có (Bearer Token) | Gửi nhắc nhở tác vụ |
+| POST | /api/chat/send | Có (Bearer Token) | Gửi tin nhắn |
+| GET | /api/chat/conversations | Có (Bearer Token) | Danh sách hội thoại |
+| GET | /api/chat/messages/:otherUserId | Có (Bearer Token) | Lấy tin nhắn với 1 người |
+| PATCH | /api/chat/messages/:messageId/read | Có (Bearer Token) | Đánh dấu tin nhắn đã đọc |
+| GET | /api/chat/unread-count | Có (Bearer Token) | Đếm tin chưa đọc |
+| POST | /api/custom-reminders | Có (Bearer Token) | Tạo nhắc việc tùy chỉnh |
+| GET | /api/custom-reminders | Có (Bearer Token) | Danh sách nhắc việc tùy chỉnh |
+| PATCH | /api/custom-reminders/:id | Có (Bearer Token) | Cập nhật nhắc việc tùy chỉnh |
+| DELETE | /api/custom-reminders/:id | Có (Bearer Token) | Xóa nhắc việc tùy chỉnh |
+| GET | /api/doctors/profile | Có (Bearer Token) | Lấy profile bác sĩ |
+| POST | /api/doctors/link | Có (Bearer Token) | Bệnh nhân liên kết bác sĩ |
+| POST | /api/doctors/revoke/:doctorId | Có (Bearer Token) | Hủy liên kết bác sĩ |
+| GET | /api/doctors/my-doctors | Có (Bearer Token) | Danh sách bác sĩ của bệnh nhân |
+| GET | /api/doctors/patients | Có (Bearer Token) | Danh sách bệnh nhân của bác sĩ |
+| GET | /api/doctors/patients/:patientId/profile | Có (Bearer Token) | Hồ sơ bệnh nhân |
+| GET | /api/doctors/patients/:patientId/vitals | Có (Bearer Token) | Chỉ số sinh tồn bệnh nhân |
+| POST | /api/doctors/patients/:patientId/prescriptions | Có (Bearer Token) | Bác sĩ kê đơn |
+| GET | /api/doctors/patients/:patientId/adherence | Có (Bearer Token) | Tuân thủ dùng thuốc của bệnh nhân |
+| GET | /api/doctors/patients/:patientId/prescription-history | Có (Bearer Token) | Lịch sử đơn thuốc |
+| GET | /api/doctors/patients/:patientId/symptom-trend | Có (Bearer Token) | Xu hướng triệu chứng |
+| GET | /api/drug-catalog | Có (Bearer Token) | Danh sách + tìm kiếm thuốc |
+| GET | /api/drug-catalog/search | Có (Bearer Token) | Tìm kiếm autocomplete thuốc |
+| POST | /api/drug-catalog | Có (Bearer Token) | Thêm thuốc vào danh mục |
+| PATCH | /api/drug-catalog/:id | Có (Bearer Token) | Cập nhật thuốc |
+| DELETE | /api/drug-catalog/:id | Có (Bearer Token) | Soft delete thuốc |
+| POST | /api/drug-catalog/seed | Có (Bearer Token) | Seed dữ liệu thuốc mẫu |
+| POST | /api/health/logs | Có (Bearer Token) | Tạo health log |
+| GET | /api/health/summary | Có (Bearer Token) | Tổng quan sức khỏe |
+| GET | /api/health/scheduled | Có (Bearer Token) | Danh sách tác vụ đã lên lịch |
+| GET | /api/health/today | Có (Bearer Token) | Health log hôm nay |
+| PATCH | /api/health/logs/:id | Có (Bearer Token) | Cập nhật health log |
+| DELETE | /api/health/logs/:id | Có (Bearer Token) | Xóa health log |
+| GET | /api/medical-records/patient/my-records | Có (Bearer Token) | Bệnh nhân xem hồ sơ khám của mình |
+| GET | /api/medical-records/:patientId | Có (Bearer Token) | Bác sĩ xem lịch sử khám bệnh nhân |
+| POST | /api/medical-records/:patientId | Có (Bearer Token) | Bác sĩ tạo hồ sơ khám |
+| GET | /api/medical-records/:patientId/:recordId/pdf | Có (Bearer Token) | Xuất PDF hồ sơ khám |
+| GET | /api/medical-records/:patientId/:recordId | Có (Bearer Token) | Xem chi tiết hồ sơ khám |
+| PATCH | /api/medical-records/:patientId/:recordId | Có (Bearer Token) | Cập nhật hồ sơ khám |
+| POST | /api/medications | Có (Bearer Token) | Tạo thuốc và lịch nhắc |
+| POST | /api/medications/take-all-now | Có (Bearer Token) | Đánh dấu uống toàn bộ thuốc hiện tại |
+| GET | /api/medications/today | Có (Bearer Token) | Lấy nhắc thuốc hôm nay |
+| GET | /api/medications/missed | Có (Bearer Token) | Lấy thuốc bị bỏ lỡ |
+| GET | /api/medications | Có (Bearer Token) | Danh sách thuốc |
+| PATCH | /api/medications/:id/take | Có (Bearer Token) | Cập nhật trạng thái uống thuốc |
+| PATCH | /api/medications/reminders/:id | Có (Bearer Token) | Cập nhật reminder thuốc |
+| DELETE | /api/medications/batch | Có (Bearer Token) | Xóa hàng loạt thuốc |
+| DELETE | /api/medications/reminders/:id | Có (Bearer Token) | Xóa reminder |
+| DELETE | /api/medications/:id | Có (Bearer Token) | Xóa thuốc |
+| POST | /api/prescriptions/scan | Có (Bearer Token) | Quét/nhận diện đơn thuốc |
+| POST | /api/prescriptions | Có (Bearer Token) | Tạo đơn thuốc |
+| GET | /api/prescriptions | Có (Bearer Token) | Danh sách đơn thuốc |
+| GET | /api/prescriptions/:id | Có (Bearer Token) | Chi tiết đơn thuốc |
+| PUT | /api/prescriptions/:id | Có (Bearer Token) | Cập nhật đơn thuốc |
+| DELETE | /api/prescriptions/:id | Có (Bearer Token) | Xóa đơn thuốc |
+| GET | /api/reports/overview | Có (Bearer Token) | Báo cáo tổng hợp |
+| GET | /api/reports/export-pdf | Có/Không (Token header hoặc query) | Xuất PDF báo cáo |
+| GET | /api/settings/notifications | Không rõ (phụ thuộc mount middleware) | Lấy cài đặt thông báo |
+| PATCH | /api/settings/notifications | Không rõ (phụ thuộc mount middleware) | Cập nhật cài đặt thông báo |
+| GET | /api/settings/medication-times | Không rõ (phụ thuộc mount middleware) | Lấy giờ thuốc mặc định |
+| PATCH | /api/settings/medication-times | Không rõ (phụ thuộc mount middleware) | Cập nhật giờ thuốc mặc định |
+| POST | /api/upload/image | Có (Bearer Token) | Upload ảnh |
+| GET | /api/users/me | Có (Bearer Token) | Lấy thông tin user hiện tại |
+| PATCH | /api/users/me | Có (Bearer Token) | Cập nhật hồ sơ user |
+| POST | /api/wellness/log | Có (Bearer Token) | Ghi nhận hoạt động wellness |
