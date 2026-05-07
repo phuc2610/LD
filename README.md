@@ -1,257 +1,422 @@
-# Kế Hoạch Nâng Cấp SEO & Đa Quốc Gia — VINUT USA
+# TÀI LIỆU CẤU TRÚC CƠ SỞ DỮ LIỆU - SMARTCARE BACKEND
+
+> Nguồn: `server/src/models` (MongoDB + Mongoose)
 
 ---
 
-## Hiện trạng
+## Bảng 1.1. Cấu trúc cơ sở dữ liệu – Collection User
 
-| Tính năng | Trạng thái | Ghi chú |
-|---|---|---|
-| Market hiện có | US + Thailand | Hard-code trong market.config.ts |
-| Geo-targeting theo IP | Chưa | User chọn thủ công bằng dropdown |
-| Sản phẩm/banner theo quốc gia | Chưa | Chung cho tất cả |
-| SEO Panel | Có | Cơ bản: title, description, keywords, OG image |
-| Sitemap / Schema / Redirect | Chưa | — |
-| SEO Checklist / Tags / Auto ALT | Chưa | — |
-| Facebook Comments / Share | Chưa | — |
-| View counting / Analytics | Chưa | — |
-
----
-
-## Phase 0: Hệ Thống Đa Quốc Gia — Sẵn Sàng Mở Rộng Toàn Cầu
-
-### Bối cảnh
-
-Hiện tại website chỉ phục vụ 2 thị trường: US (mặc định) và Thailand. Tuy nhiên, mục tiêu dài hạn là mở rộng ra toàn thế giới — bất kỳ quốc gia nào VINUT muốn tiếp cận đều có thể được thêm vào hệ thống mà không cần sửa code hay deploy lại.
-
-Toàn bộ kiến trúc Phase 0 phải được thiết kế theo nguyên tắc: admin chỉ cần thao tác trên CMS để thêm quốc gia mới, hệ thống tự xử lý routing, ngôn ngữ, sản phẩm, banner, SEO. Không có giới hạn về số lượng quốc gia.
-
----
-
-### Bước 1 — Chuyển quản lý quốc gia từ code sang CMS
-
-Hiện tại danh sách market nằm trong file [market.config.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/config/market.config.ts), hard-code 2 entry (US, Thailand). Mỗi lần muốn thêm quốc gia mới (ví dụ Japan, Korea, Vietnam, Indonesia...) phải sửa file này, thêm file translation, sửa routing, rồi deploy lại. Cách làm này không thể scale khi mở rộng toàn cầu.
-
-Giải pháp: tạo schema `marketConfig` trong Sanity CMS. Mỗi document là một quốc gia. Admin tạo quốc gia mới hoàn toàn trên CMS — không cần developer can thiệp. Mỗi document chứa: mã quốc gia (unique, dùng trong URL + logic), tên hiển thị trong dropdown, prefix cho URL (rỗng = default market), mã ngôn ngữ BCP 47, mã tiền tệ ISO 4217, mã hreflang cho SEO, cờ quốc gia, flag đánh dấu market mặc định, danh sách mã ISO 3166-1 alpha-2 ánh xạ với market (để match IP), và trạng thái bật/tắt.
-
-Field `isoCountryCodes` rất quan trọng: nó ánh xạ mã quốc gia từ IP (Cloudflare trả về ISO code như [US](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/interfaces.ts#119-123), `TH`, `JP`, `VN`, `KR`) với market tương ứng. Một market có thể map nhiều ISO code — ví dụ market "Southeast Asia" có thể map `SG, MY, ID, PH` cùng lúc.
-
-Khi app khởi động, thay vì đọc mảng hard-code, sẽ fetch danh sách markets từ Sanity API. Kết quả được cache để không gọi API mỗi request. Ban đầu chuẩn bị sẵn 2 documents: US (isDefault=true) và Thailand.
-
-Files liên quan: tạo mới **`vncms/schemaTypes/marketConfig.ts`**, sửa **[vncms/schemaTypes/index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts)** để đăng ký schema, sửa **[src/config/market.config.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/config/market.config.ts)** bỏ hard-code để fetch từ Sanity, sửa **[vncms/lib/querries.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/lib/querries.ts)** thêm query lấy danh sách markets.
-
----
-
-### Bước 2 — Tự động phát hiện quốc gia theo IP
-
-Khi người dùng lần đầu truy cập website, hệ thống cần tự nhận diện họ đến từ quốc gia nào. Cloudflare Workers có sẵn header `cf-ipcountry` chứa mã quốc gia ISO 2 chữ cái — không cần gọi API bên ngoài, không tốn phí, không có độ trễ.
-
-Luồng xử lý trong Worker khi user truy cập `/` (root): đầu tiên kiểm tra cookie `vinut-market` — nếu có thì dùng giá trị cookie, bỏ qua IP (cookie được set khi user tự chọn quốc gia hoặc lần đầu auto-detect). Nếu không có cookie, đọc `cf-ipcountry` từ request header, so sánh mã ISO với field `isoCountryCodes` trong danh sách markets đã cache. Nếu match (ví dụ IP từ Nhật, `JP` nằm trong isoCountryCodes của market Japan) → redirect 302 đến `/{urlPrefix}/` + set cookie `vinut-market=japan` (max-age 30 ngày). Nếu không match bất kỳ market nào → giữ nguyên ở US (default), set cookie `vinut-market=us`.
-
-Dùng 302 (tạm thời) chứ không phải 301 (vĩnh viễn), vì cùng URL `/` redirect khác nhau tùy IP. Nếu dùng 301, trình duyệt hoặc CDN cache redirect vĩnh viễn → gây lỗi. Khi user tự chọn quốc gia khác qua dropdown → cookie cập nhật → lần sau Worker đọc cookie trước, không ghi đè bằng IP.
-
-Khi mở rộng thêm quốc gia: admin chỉ cần tạo document market mới trong CMS với isoCountryCodes phù hợp → Worker tự nhận diện IP mới.
-
-Files liên quan: sửa **[worker.js](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/worker.js)** thêm logic IP detection + market matching + redirect + cookie.
-
----
-
-### Bước 3 — Sản phẩm riêng cho từng quốc gia
-
-Mỗi thị trường có lineup sản phẩm khác nhau tùy thuộc vào sở thích tiêu dùng, quy định nhập khẩu, và chiến lược kinh doanh. Ví dụ Thailand bán nhiều nước dừa, Japan chuộng matcha, Hàn Quốc có Aloe Vera đặc biệt.
-
-Thêm field `markets` vào schema product — mảng reference đến `marketConfig`. Admin khi tạo/sửa sản phẩm sẽ tick chọn quốc gia nào được bán sản phẩm này. Nếu product có `markets = [japan, korea]` → chỉ hiển thị ở Japan và Korea. Nếu product không gắn market nào (mảng rỗng) → hiển thị ở tất cả market (sản phẩm toàn cầu). User ở market Japan sẽ thấy: sản phẩm gắn Japan + sản phẩm toàn cầu.
-
-Cách này backward compatible: tất cả sản phẩm hiện tại không có field markets → tự động là sản phẩm toàn cầu, vẫn hiển thị bình thường. Tất cả GROQ queries sản phẩm cần sửa để nhận thêm param `marketCode` và filter.
-
-Files liên quan: sửa **[vncms/schemaTypes/product.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/product.ts)** thêm field markets, sửa **[vncms/lib/querries.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/lib/querries.ts)** filter theo market, sửa **[src/Navigations/Products.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/Products.tsx)**, **[src/sections/PopularProducts.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/sections/PopularProducts.tsx)**, **[src/components/RelatedProducts.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/components/RelatedProducts.tsx)** truyền market code.
-
----
-
-### Bước 4 — Banner riêng cho từng quốc gia
-
-Banner hero (carousel trang chủ) và banner trang con cần hình ảnh phù hợp văn hóa và sản phẩm chủ lực của từng quốc gia. Hiện tại 3 slides hero hard-code trong constants với ảnh cố định.
-
-Tạo schema `heroBanner` trong CMS. Mỗi document chứa: tiêu đề, chủ đề, ảnh banner, mô tả, market (reference đến marketConfig), thứ tự hiển thị. Admin tạo nhiều bộ banner cho mỗi quốc gia. Khi market Japan có 4 banners riêng → hiển thị 4 banners đó. Khi market Korea chưa có banner riêng → fallback lấy banners của US (default market).
-
-Tương tự, banner tiêu đề trên các trang con (Products, Blog, Contact...) cũng hỗ trợ ảnh khác nhau cho từng quốc gia thông qua schema `pageSlug` (Phase 1).
-
-Files liên quan: tạo mới **`vncms/schemaTypes/heroBanner.ts`**, sửa **[vncms/schemaTypes/index.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/schemaTypes/index.ts)**, sửa **[vncms/lib/querries.ts](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/vncms/lib/querries.ts)** query banner theo market, sửa **[src/Navigations/Landing.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/Navigations/Landing.tsx)** fetch banners từ Sanity thay constants, sửa **[src/sections/Hero.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/sections/Hero.tsx)** nhận data từ Sanity, sửa **[src/components/Layout.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/components/Layout.tsx)** banner trang con theo market, sửa **[src/constants/index.tsx](file:///c:/Users/ASUS%20TUF%20GAMING/Desktop/ALL/SRC/vinut-usa-release/vinut-usa-release/vinut-usa-release/src/constants/index.tsx)** loại bỏ hard-code slides.
-
----
-
-### Bước 5 — Routing động và mở rộng i18n
-
-Routing hiện tạo routes từ mảng `MARKET_LIST` hard-code 2 entries. Khi admin thêm quốc gia mới trong CMS, hệ thống phải tự tạo routes mà không sửa code. App.tsx khi khởi động sẽ fetch danh sách markets từ Sanity → dựa trên kết quả tạo routes động cho N quốc gia. MarketDropdown hiển thị tất cả markets active từ CMS. Nếu Sanity API lỗi → app fallback về chạy US only.
-
-Về i18n: mỗi market mới cần file translation trong `src/i18n/`. Tuy nhiên không bắt buộc — nếu chưa có file translation cho market đó, hệ thống tự fallback về US English. Cơ chế fallback: ưu tiên file translation theo market code (ví dụ `i18n/japan.ts`), nếu không tồn tại → dùng `i18n/us.ts`.
-
-Files liên quan: sửa **`src/App.tsx`** fetch markets + tạo routes động, sửa **`src/context/MarketContext.tsx`** hỗ trợ dynamic markets, sửa **`src/components/MarketDropdown.tsx`** hiển thị từ CMS data, sửa **`src/i18n/index.ts`** dynamic import, tạo mới file **`src/i18n/[market].ts`** khi có market mới.
-
----
-
-### Kịch bản mẫu: Thêm market Japan
-
-| Bước | Ai | Hành động | Kết quả |
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
 |---|---|---|---|
-| 1 | Admin | CMS → tạo marketConfig: code=japan, prefix=japan, ISO=JP | Market Japan xuất hiện |
-| 2 | Admin | CMS → tạo heroBanner cho Japan | Banner riêng |
-| 3 | Admin | CMS → sửa products → gắn Japan | Sản phẩm phù hợp Nhật |
-| 4 | Dev (optional) | Tạo `src/i18n/japan.ts` | UI tiếng Nhật (bỏ qua → dùng English) |
-| 5 | Tự động | IP Nhật → Worker detect JP → redirect /japan/ | Hoàn tất, không cần deploy |
+| _id | ObjectId | PK, auto | ID duy nhất người dùng |
+| name | String | Required | Tên người dùng |
+| phone | String | Required, Unique | Số điện thoại đăng nhập |
+| passwordHash | String | Required | Mật khẩu đã mã hóa |
+| role | String | Required, Enum(PATIENT, CAREGIVER, DOCTOR) | Vai trò tài khoản |
+| caregiverId | ObjectId (ref: User) | Optional, Default null | Liên kết người chăm sóc |
+| caregiverPhone | String | Optional, Default null | SĐT người chăm sóc |
+| email | String | Optional, Default null | Email người dùng |
+| isVerified | Boolean | Default false | Trạng thái xác minh |
+| medicalCondition | String | Default "Normal" | Tình trạng bệnh nền |
+| height | Number | Optional, Default null | Chiều cao |
+| weight | Number | Optional, Default null | Cân nặng |
+| otpCode | String | Optional, Default null | OTP tạm |
+| otpExpiresAt | Date | Optional, Default null | Hết hạn OTP |
+| notificationSettings | Embedded Document | Default object | Cấu hình nhắc nhở |
+| notificationSettings.medicationReminderBefore | Number | Default 15 | Nhắc thuốc trước (phút) |
+| notificationSettings.mealReminderBefore | Number | Default 15 | Nhắc ăn trước (phút) |
+| notificationSettings.exerciseReminderBefore | Number | Default 15 | Nhắc tập trước (phút) |
+| notificationSettings.medicationEnabled | Boolean | Default true | Bật nhắc thuốc |
+| notificationSettings.mealEnabled | Boolean | Default true | Bật nhắc ăn |
+| notificationSettings.exerciseEnabled | Boolean | Default true | Bật nhắc tập |
+| medicationTimes | Embedded Document | Default object | Khung giờ thuốc mặc định |
+| medicationTimes.morning | String | Default "08:00" | Giờ sáng |
+| medicationTimes.noon | String | Default "12:00" | Giờ trưa |
+| medicationTimes.evening | String | Default "20:00" | Giờ tối |
+| avatar | String | Optional, Default null | Ảnh đại diện |
+| linkCode | String | Unique, Sparse, Optional | Mã liên kết cố định |
+| doctorProfile | Embedded Document | Default object | Hồ sơ bác sĩ |
+| doctorProfile.hospital | String | Optional, Default null | Bệnh viện công tác |
+| doctorProfile.specialty | String | Optional, Default null | Chuyên khoa |
+| doctorProfile.licenseNumber | String | Optional, Default null | Số chứng chỉ hành nghề |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
 ---
 
-## Phase 1: Slug, Redirect, Sitemap
+## Bảng 1.2. Cấu trúc cơ sở dữ liệu – Collection Otp
 
-### Bước 1 — Hàm slug chuẩn SEO
-
-Slug mặc định Sanity chỉ lowercase + thay space bằng `-`. Chưa xử lý dấu tiếng Việt, ký tự đặc biệt, hoặc slug quá dài. Viết hàm slugify dùng chung: lowercase → bỏ dấu (`ă→a`, `ê→e`, `ü→u`...) → thay space/ký tự đặc biệt bằng `-` → loại `-` liên tiếp → trim đầu/cuối. Ví dụ `"Nước Ép Trái Cây Tươi @2024"` → `"nuoc-ep-trai-cay-tuoi-2024"`.
-
-Files liên quan: tạo mới **`vncms/lib/slugify.ts`**.
-
-### Bước 2 — Áp dụng slug cho schemas
-
-Thay slugify mặc định bằng hàm chuẩn SEO ở tất cả schemas có field slug.
-
-Files liên quan: sửa **`vncms/schemaTypes/post.ts`**, **`product.ts`**, **`productcategory.ts`**, **`faq.ts`**, **`history.ts`**.
-
-### Bước 3 — Slug trang tĩnh từ CMS
-
-Trang About Us, Contact Us... hiện slug hard-code trong router. Tạo schema `pageSlug` cho admin tùy chỉnh slug — mỗi quốc gia có thể có slug khác (ví dụ `/about-us` cho US, `/gioi-thieu` cho VN). Mỗi document chứa: tên trang, slug tùy chỉnh, SEO panel, và market.
-
-Files liên quan: tạo mới **`vncms/schemaTypes/pageSlug.ts`**, sửa **`vncms/schemaTypes/index.ts`**.
-
-### Bước 4 — Redirect 301/404
-
-Tạo schema `redirect` trong CMS. Admin nhập đường dẫn cũ, đường dẫn mới, mã HTTP (301 hoặc 302), trạng thái bật/tắt. Worker kiểm tra redirect rules trước SPA fallback — cache rules 1 giờ, nếu URL match fromPath → trả HTTP redirect. Trang 404 thêm meta `noindex` + gợi ý trang chính.
-
-Files liên quan: tạo mới **`vncms/schemaTypes/redirect.ts`**, sửa **`vncms/schemaTypes/index.ts`**, sửa **`vncms/lib/querries.ts`**, sửa **`worker.js`**, sửa **`src/Navigations/NotFound404.tsx`**.
-
-### Bước 5 — Sitemap.xml tự động
-
-Worker xử lý 6 routes sitemap, fetch data từ Sanity, generate XML động, cache 1 giờ. Gồm: sitemap index trỏ đến 5 sub-sitemaps (pages, posts, products, categories, images). Mỗi URL kèm `hreflang` alternate links cho tất cả markets active — khi admin thêm market mới, sitemap tự bổ sung hreflang sau tối đa 1 giờ. Tạo `robots.txt` trỏ đến sitemap. Thêm field `lastModified` vào schema post (product đã có).
-
-Files liên quan: tạo mới **`src/utils/sitemap-builder.ts`**, sửa **`worker.js`**, sửa **`vncms/schemaTypes/post.ts`**, tạo mới **`public/robots.txt`**.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID OTP |
+| phone | String | Required, Index | Số điện thoại nhận OTP |
+| verificationId | String | Required, Index | ID xác minh từ nhà cung cấp |
+| purpose | String | Required, Enum(REGISTER, FORGOT_PASSWORD), Index | Mục đích OTP |
+| expireAt | Date | Required, TTL Index | Hết hạn và tự xóa |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
 
 ---
 
-## Phase 2: Schema Markup
+## Bảng 1.3. Cấu trúc cơ sở dữ liệu – Collection AIReport
 
-Schema markup (JSON-LD) giúp Google hiểu cấu trúc nội dung → hiện rich snippets (sao đánh giá, FAQ, breadcrumb...) → tăng CTR.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID báo cáo AI |
+| userId | ObjectId (ref: User) | Required, Index | Người dùng sở hữu báo cáo |
+| range | String | Required, Enum(week, month) | Chu kỳ báo cáo |
+| medicalCondition | String | Required | Tình trạng bệnh |
+| notes | String | Required | Nội dung tóm tắt AI |
+| dateKey | String | Required, Index | Khóa ngày (YYYY-MM-DD) |
+| expiresAt | Date | Required, TTL Index | Hạn lưu báo cáo |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
-### Bước 1 — Hàm generate JSON-LD
-
-Tạo utility functions nhận dữ liệu → trả về object JSON-LD cho từng loại: Article (BlogPost — title, author, publishedAt, image), Product (ProductPost — name, description, image, brand, reviews), BreadcrumbList (tất cả trang con — Home → Section → Tên trang), FAQPage (Faqs — question + answer), VideoObject (AboutUs — video about-us.mp4), AggregateRating (Landing — trung bình rating), NewsArticle (BlogPost tin tức).
-
-### Bước 2 — Component render và tích hợp
-
-Tạo component `JsonLd` render `<script type="application/ld+json">` vào `<head>` qua Helmet. Gắn vào từng trang với hàm generate tương ứng.
-
-Files liên quan: tạo mới **`src/utils/schema-markup.ts`**, **`src/components/JsonLd.tsx`**. Sửa **`src/Navigations/BlogPost.tsx`** (Article + Breadcrumb), **`ProductPost.tsx`** (Product + Breadcrumb), **`Faqs.tsx`** (FAQPage), **`AboutUs.tsx`** (VideoObject), **`Landing.tsx`** (AggregateRating).
-
----
-
-## Phase 3: Module Viết Bài Chuẩn SEO
-
-### Bước 1 — Mở rộng SEO panel
-
-Thêm 2 field: `focusKeyword` (từ khóa chính muốn SEO, dùng để chấm điểm) và `canonicalUrl` (URL canonical tùy chỉnh, optional).
-
-Files liên quan: sửa **`vncms/schemaTypes/seoPanel.ts`**.
-
-### Bước 2 — SEO Checklist trong Sanity Studio
-
-Tạo custom component hiển thị real-time khi soạn bài, đánh giá 11 tiêu chí: SEO title chứa focus keyword (30–60 ký tự), meta description chứa keyword (80–160 ký tự), có OG image, slug chứa keyword, body có heading H2/H3, tất cả ảnh có ALT, có internal links, độ dài body trên 300 từ, keyword ở đoạn đầu. Hiển thị pass/warning/fail + điểm tổng /100.
-
-Files liên quan: tạo mới **`vncms/components/SeoChecklist.tsx`**, sửa **`vncms/schemaTypes/post.ts`** và **`product.ts`** tích hợp checklist vào group SEO.
+**Index bổ sung:**  
+- Unique compound: `(userId, range, medicalCondition, dateKey)`
 
 ---
 
-## Phase 4: Internal Link & Tags
+## Bảng 1.4. Cấu trúc cơ sở dữ liệu – Collection Alert
 
-### Bước 1 — Tags
-
-Tags phân loại nội dung chi tiết hơn categories — cho phép matching bài viết liên quan chính xác + tạo internal links. Tạo schema `tag` (name + slug). Thêm field `tags` vào post và product. Tạo component TagList hiển thị pills, click → filter bài viết/sản phẩm cùng tag.
-
-Files liên quan: tạo mới **`vncms/schemaTypes/tag.ts`**, **`src/components/TagList.tsx`**. Sửa **`vncms/schemaTypes/index.ts`**, **`post.ts`**, **`product.ts`**, **`vncms/lib/querries.ts`**, **`src/Navigations/BlogPost.tsx`**, **`ProductPost.tsx`**.
-
-### Bước 2 — Bài viết liên quan cải tiến
-
-BlogPost hiện hiển thị "Recent Articles" (bài mới nhất). Thay bằng "Related Articles" — ưu tiên bài có tags chung, nếu không đủ bổ sung bằng recent.
-
-Files liên quan: sửa **`src/Navigations/BlogPost.tsx`**.
-
-### Bước 3 — Gợi ý nội link trong CMS
-
-Tạo panel sidebar trong Sanity Studio. Khi edit bài, panel tự query bài viết/sản phẩm có title hoặc tags match focus keyword/title bài hiện tại → gợi ý link cho admin chèn vào body.
-
-Files liên quan: tạo mới **`vncms/components/InternalLinkSuggestion.tsx`**, sửa **`vncms/sanity.config.ts`** đăng ký panel.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID cảnh báo |
+| patientId | ObjectId (ref: User) | Required, Index | Bệnh nhân nhận cảnh báo |
+| type | String | Required, Enum(medication, symptom, appointment, sos, fall, medication_missed) | Loại cảnh báo |
+| severity | String | Default info, Enum(warning, error, info) | Mức độ |
+| title | String | Required | Tiêu đề cảnh báo |
+| message | String | Required | Nội dung cảnh báo |
+| actionUrl | String | Optional | Điều hướng khi bấm |
+| isRead | Boolean | Default false | Trạng thái đã đọc |
+| readBy | ObjectId[] (ref: User) | Optional | Danh sách caregiver đã đọc |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
 ---
 
-## Phase 5: Hình Ảnh — Tự Sinh ALT
+## Bảng 1.5. Cấu trúc cơ sở dữ liệu – Collection Appointment
 
-ALT text là cách duy nhất Google hiểu nội dung ảnh. Thiếu ALT = mất ranking Google Images + accessibility kém.
-
-Thêm field `alt` cho image type trong blockContent — khi admin chèn ảnh sẽ thấy ô nhập ALT. Validation warning nếu trống. Tạo hàm auto-generate ALT: tách filename từ URL → bỏ extension → thay `-`/`_` bằng space → capitalize → nối title bài nếu có. Ví dụ: URL `coconut-water-fresh.jpg` + title `Benefits of Coconut` → ALT `"Coconut Water Fresh - Benefits of Coconut"`. BlogPostBody khi render ảnh: nếu có alt → dùng, nếu không → auto-generate. Rà soát tất cả `<img>` tags trong components khác.
-
-Files liên quan: sửa **`vncms/schemaTypes/blockContent.ts`**, tạo mới **`src/utils/auto-alt.ts`**, sửa **`src/components/BlogPostBody.tsx`**.
-
----
-
-## Phase 6: Social Network
-
-### Bước 1 — Facebook Comments
-
-Đăng ký Facebook App → lấy App ID. Load Facebook JS SDK async vào index.html (không ảnh hưởng page speed). Tạo component FacebookComments render comments box. Gắn vào BlogPost và ProductPost dưới nội dung chính.
-
-### Bước 2 — Share Buttons
-
-Tạo component 5 nút share: Facebook (sharer.php), Twitter/X (intent/tweet), LinkedIn (shareArticle), WhatsApp (wa.me), Copy Link (clipboard + toast). Mobile dùng Web Share API native nếu browser hỗ trợ. Gắn vào BlogPost và ProductPost.
-
-Files liên quan: sửa **`index.html`** (FB SDK), tạo mới **`src/components/FacebookComments.tsx`** và **`ShareButtons.tsx`**, sửa **`src/Navigations/BlogPost.tsx`** và **`ProductPost.tsx`**.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID lịch hẹn |
+| userId | ObjectId (ref: User) | Required, Index | Bệnh nhân |
+| doctorId | ObjectId (ref: User) | Optional, Default null | Bác sĩ tạo lịch |
+| createdByRole | String | Default PATIENT, Enum(PATIENT, CAREGIVER, DOCTOR) | Vai trò tạo lịch |
+| doctorName | String | Required | Tên bác sĩ |
+| doctorSpecialty | String | Default "" | Chuyên khoa |
+| hospitalName | String | Default "" | Cơ sở khám |
+| appointmentDate | Date | Required | Ngày hẹn |
+| appointmentTime | String | Default "" | Giờ hẹn |
+| notes | String | Default "" | Ghi chú |
+| reminderBefore | Number | Default 24 | Nhắc trước (giờ) |
+| isCompleted | Boolean | Default false | Hoàn thành lịch hẹn |
+| notificationId | String | Optional, Default null | ID thông báo |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
 ---
 
-## Phase 7: View Counting
+## Bảng 1.6. Cấu trúc cơ sở dữ liệu – Collection CaregiverRequest
 
-Đếm lượt xem giúp admin biết sản phẩm/bài viết nào được quan tâm → quyết định nội dung hiệu quả.
-
-Tạo schema `viewCount` (contentType, contentSlug, views, lastViewed). Worker thêm API `POST /api/view` — nhận type + slug → atomic increment views trong Sanity. Frontend: hook `useViewCount` kiểm tra localStorage tránh count trùng 24h → gọi API. Component `ViewCounter` hiển thị số lượt xem. Gắn vào BlogPost và ProductPost.
-
-Files liên quan: tạo mới **`vncms/schemaTypes/viewCount.ts`**, **`src/hooks/useViewCount.ts`**, **`src/components/ViewCounter.tsx`**. Sửa **`vncms/schemaTypes/index.ts`**, **`vncms/lib/querries.ts`**, **`worker.js`**, **`src/Navigations/BlogPost.tsx`**, **`ProductPost.tsx`**.
-
----
-
-## Phase 8: SEO Analytics
-
-Admin cần tích hợp tracking tools mà không cần developer deploy lại.
-
-Tạo schema singleton `analyticsConfig` — admin nhập GA4 Measurement ID (`G-XXXXXXX`), GSC verification code, GTM Container ID (`GTM-XXXXXXX`), Facebook Pixel ID (optional). Worker khi trả index.html: fetch config từ Sanity (cache 1 giờ) → inject scripts (GSC meta tag + GTM + GA4 gtag.js + FB Pixel) vào `<head>` → trả HTML đã inject. Admin đổi ID trong CMS → tự apply khi cache hết hạn, không cần redeploy.
-
-Files liên quan: tạo mới **`vncms/schemaTypes/analyticsConfig.ts`**. Sửa **`vncms/schemaTypes/index.ts`**, **`vncms/lib/querries.ts`**, **`worker.js`**.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID yêu cầu liên kết |
+| patientId | ObjectId (ref: User) | Required, Index | Bệnh nhân gửi yêu cầu |
+| caregiverId | ObjectId (ref: User) | Required, Index | Người chăm sóc nhận yêu cầu |
+| status | String | Default pending, Enum(pending, accepted, rejected) | Trạng thái xử lý |
+| requestedAt | Date | Default now | Thời điểm gửi yêu cầu |
+| respondedAt | Date | Optional, Default null | Thời điểm phản hồi |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
 ---
 
-## Phase 9: Module Kiểm Tra Lỗi Bài Viết
+## Bảng 1.7. Cấu trúc cơ sở dữ liệu – Collection CareNote
 
-Tạo tool "Content Audit" trong Sanity Studio — quét tất cả post + product, phát hiện lỗi SEO.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID ghi chú chăm sóc |
+| patientId | ObjectId (ref: User) | Required, Index | Bệnh nhân |
+| caregiverId | ObjectId (ref: User) | Required, Index | Người chăm sóc ghi chú |
+| content | String | Required | Nội dung ghi chú |
+| tags | String[] | Optional | Nhãn phân loại |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
-Các lỗi kiểm tra:
+---
 
-| Loại lỗi | Cách detect | Mức độ |
-|---|---|---|
-| Thiếu ALT ảnh | Scan body → image blocks có alt trống | Nghiêm trọng |
-| Thiếu meta title | seo.seoTitle trống | Nghiêm trọng |
-| Thiếu meta description | seo.seoDescription trống | Nghiêm trọng |
-| Meta title quá dài/ngắn | Ngoài 30–60 ký tự | Cảnh báo |
-| Meta description quá dài/ngắn | Ngoài 80–160 ký tự | Cảnh báo |
-| Thiếu focus keyword | seo.focusKeyword trống | Cảnh báo |
-| Thiếu keywords | seo.seoKeywords length < 3 | Cảnh báo |
-| Thiếu slug | slug.current undefined | Nghiêm trọng |
-| Thiếu OG Image | seo.ogImage null | Cảnh báo |
-| Thiếu dữ liệu schema | Article thiếu author, Product thiếu description | Cảnh báo |
+## Bảng 1.8. Cấu trúc cơ sở dữ liệu – Collection ChatMessage
 
-Dashboard tổng hợp: bao nhiêu OK / cần sửa / lỗi nghiêm trọng. Bộ lọc theo loại content, loại lỗi. Click vào dòng lỗi → mở document editor sửa ngay.
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID tin nhắn AI |
+| userId | ObjectId (ref: User) | Required, Index | Người dùng chat AI |
+| message | String | Required | Câu hỏi người dùng |
+| response | String | Required | Phản hồi chatbot |
+| sender | String | Required, Enum(user, bot) | Nguồn tin nhắn |
+| timestamp | Date | Default now, Index | Thời gian logic chat |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
 
-Files liên quan: tạo mới **`vncms/components/ContentAudit.tsx`**, **`ContentAuditDashboard.tsx`**. Sửa **`vncms/sanity.config.ts`** đăng ký tool.
+---
+
+## Bảng 1.9. Cấu trúc cơ sở dữ liệu – Collection CustomReminder
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID nhắc việc tùy chỉnh |
+| userId | ObjectId (ref: User) | Required, Index | Chủ sở hữu nhắc việc |
+| title | String | Required | Tiêu đề |
+| description | String | Default "" | Mô tả |
+| reminderTime | Date | Required | Thời điểm nhắc |
+| repeatType | String | Default NONE, Enum(NONE, DAILY, WEEKLY, MONTHLY) | Kiểu lặp |
+| repeatDays | Number[] | Optional | Thứ lặp (0-6) |
+| isActive | Boolean | Default true | Trạng thái bật/tắt |
+| notificationId | String | Optional, Default null | ID thông báo |
+| lastTriggered | Date | Optional, Default null | Lần kích hoạt gần nhất |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.10. Cấu trúc cơ sở dữ liệu – Collection DoctorPatientLink
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID liên kết bác sĩ-bệnh nhân |
+| doctorId | ObjectId (ref: User) | Required | Bác sĩ |
+| patientId | ObjectId (ref: User) | Required | Bệnh nhân |
+| status | String | Default ACTIVE, Enum(ACTIVE, REVOKED) | Trạng thái liên kết |
+| expiresAt | Date | Optional, Default null | Hạn quyền truy cập |
+| grantedAt | Date | Default now | Thời điểm cấp quyền |
+| permissions | Embedded Document | Default object | Quyền truy cập chi tiết |
+| permissions.canViewVitals | Boolean | Default true | Xem chỉ số sinh tồn |
+| permissions.canViewMedications | Boolean | Default true | Xem thuốc |
+| permissions.canPrescribe | Boolean | Default true | Quyền kê đơn |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+**Index bổ sung:**  
+- Unique compound: `(doctorId, patientId)`
+
+---
+
+## Bảng 1.11. Cấu trúc cơ sở dữ liệu – Collection DrugCatalog
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID thuốc danh mục |
+| name | String | Required, Trim | Tên biệt dược |
+| activeIngredient | String | Default "", Trim | Hoạt chất |
+| category | String | Default OTHER, Enum | Nhóm thuốc |
+| defaultDosage | String | Default "1 viên/lần" | Liều mặc định |
+| defaultSessions | String[] | Enum(MORNING, NOON, EVENING) | Buổi dùng mặc định |
+| defaultMealTiming | String | Default AFTER_MEAL, Enum(BEFORE_MEAL, AFTER_MEAL) | Uống trước/sau ăn |
+| unit | String | Default "viên" | Đơn vị |
+| price | Number | Default 0 | Giá/đơn vị |
+| stock | Number | Default 0 | Tồn kho |
+| contraindications | String | Default "" | Chống chỉ định |
+| sideEffects | String | Default "" | Tác dụng phụ |
+| notes | String | Default "" | Ghi chú |
+| isActive | Boolean | Default true | Trạng thái hoạt động |
+| createdBy | ObjectId (ref: User) | Optional | Người tạo |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+**Index bổ sung:**  
+- Text index: `name`, `activeIngredient`
+
+---
+
+## Bảng 1.12. Cấu trúc cơ sở dữ liệu – Collection EmergencyContact
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID liên hệ khẩn cấp |
+| patientId | ObjectId (ref: User) | Required, Index | Bệnh nhân |
+| name | String | Required | Tên liên hệ |
+| phone | String | Required | SĐT liên hệ |
+| relationship | String | Required | Quan hệ với bệnh nhân |
+| isPrimary | Boolean | Default false | Liên hệ chính |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.13. Cấu trúc cơ sở dữ liệu – Collection HealthLog
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID nhật ký sức khỏe |
+| userId | ObjectId (ref: User) | Required, Index | Người dùng |
+| date | Date | Required | Ngày ghi nhận |
+| type | String | Required, Enum(meal, exercise, symptom) | Loại log |
+| scheduledDate | Date | Optional | Ngày dự kiến thực hiện |
+| scheduledTime | String | Optional | Giờ dự kiến |
+| isCompleted | Boolean | Default false | Trạng thái hoàn thành |
+| notificationIds | String[] | Default [] | Danh sách notification IDs |
+| details | Embedded Document | Optional | Chi tiết theo loại log |
+| details.foodName | String | Optional | Tên món ăn |
+| details.calories | Number | Optional | Calories nạp vào |
+| details.exerciseType | String | Optional | Loại vận động |
+| details.durationMinutes | Number | Optional | Thời lượng vận động |
+| details.caloriesBurned | Number | Optional | Calories tiêu hao |
+| details.symptomName | String | Optional | Tên triệu chứng |
+| details.severity | Number | Optional | Mức độ |
+| details.note | String | Optional | Ghi chú |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.14. Cấu trúc cơ sở dữ liệu – Collection Link
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID mã liên kết tạm |
+| code | String | Required, Unique | Mã liên kết |
+| patientId | ObjectId (ref: User) | Required | Bệnh nhân tạo mã |
+| expiresAt | Date | Required | Hạn dùng mã |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.15. Cấu trúc cơ sở dữ liệu – Collection MedicalRecord
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID hồ sơ khám |
+| patientId | ObjectId (ref: User) | Required, Index | Bệnh nhân |
+| doctorId | ObjectId (ref: User) | Required, Index | Bác sĩ |
+| appointmentId | ObjectId (ref: Appointment) | Optional, Default null | Lịch hẹn liên quan |
+| symptoms | Embedded Document[] | Optional | Danh sách triệu chứng |
+| symptoms.name | String | Required (trong phần tử) | Tên triệu chứng |
+| symptoms.severity | Number | Default 5, Min 1, Max 10 | Mức độ |
+| symptoms.notes | String | Default "" | Ghi chú triệu chứng |
+| vitalSigns | Embedded Document | Optional | Dấu hiệu sinh tồn |
+| vitalSigns.bloodPressure | String | Default "" | Huyết áp |
+| vitalSigns.heartRate | Number | Optional, Default null | Nhịp tim |
+| vitalSigns.temperature | Number | Optional, Default null | Nhiệt độ |
+| vitalSigns.weight | Number | Optional, Default null | Cân nặng |
+| vitalSigns.height | Number | Optional, Default null | Chiều cao |
+| vitalSigns.spO2 | Number | Optional, Default null | Nồng độ oxy máu |
+| vitalSigns.bloodSugar | Number | Optional, Default null | Đường huyết |
+| diagnosis | String | Required | Chẩn đoán chính |
+| icdCode | String | Default "" | Mã ICD |
+| note | String | Default "" | Ghi chú bác sĩ |
+| prescriptionIds | ObjectId[] (ref: Medication) | Optional | Danh sách thuốc kê |
+| followUpDate | Date | Optional, Default null | Ngày tái khám |
+| status | String | Default COMPLETED, Enum(DRAFT, COMPLETED) | Trạng thái hồ sơ |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.16. Cấu trúc cơ sở dữ liệu – Collection Medication
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID thuốc |
+| userId | ObjectId (ref: User) | Required | Bệnh nhân dùng thuốc |
+| prescriptionId | ObjectId (ref: Prescription) | Optional, Default null | Đơn thuốc nguồn |
+| name | String | Required | Tên thuốc |
+| dosage | String | Required | Liều lượng |
+| unit | String | Default "mg" | Đơn vị |
+| notes | String | Optional, Default null | Ghi chú |
+| isActive | Boolean | Default true | Trạng thái sử dụng |
+| prescribedBy | ObjectId (ref: User) | Optional, Default null | Bác sĩ kê |
+| frequency | String | Required, Enum(DAILY, EVERY_OTHER_DAY) | Tần suất |
+| sessions | String[] | Optional, Enum(MORNING, NOON, EVENING) | Các buổi uống |
+| mealTiming | String | Default NONE, Enum(BEFORE_MEAL, AFTER_MEAL, NONE) | Thời điểm theo bữa ăn |
+| times | String[] | Optional | Danh sách giờ HH:mm |
+| startDate | Date | Required | Ngày bắt đầu |
+| endDate | Date | Optional, Default null | Ngày kết thúc |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.17. Cấu trúc cơ sở dữ liệu – Collection Message
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID tin nhắn người dùng |
+| senderId | ObjectId (ref: User) | Required | Người gửi |
+| receiverId | ObjectId (ref: User) | Required | Người nhận |
+| content | String | Required, Trim | Nội dung tin nhắn |
+| messageType | String | Default text, Enum(text, image, file) | Loại tin nhắn |
+| imageUrl | String | Optional, Default null | URL ảnh/file |
+| isRead | Boolean | Default false | Đã đọc hay chưa |
+| readAt | Date | Optional, Default null | Thời điểm đọc |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.18. Cấu trúc cơ sở dữ liệu – Collection Prescription
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID đơn thuốc |
+| userId | ObjectId (ref: User) | Required | Bệnh nhân |
+| imageUrl | String | Optional, Default null | Ảnh đơn thuốc |
+| doctorName | String | Default "" | Tên bác sĩ |
+| patientName | String | Default "" | Tên bệnh nhân |
+| diagnosis | String | Default "" | Chẩn đoán |
+| startDate | String | Default "" | Ngày bắt đầu |
+| notes | String | Default "" | Ghi chú |
+| medications | Embedded Document[] | Optional | Danh sách thuốc trong đơn |
+| medications.name | String | Required (trong phần tử) | Tên thuốc |
+| medications.dosage | String | Default "" | Liều dùng |
+| medications.quantity | Number | Default 0 | Số lượng |
+| medications.unit | String | Default "Viên" | Đơn vị |
+| medications.sessions | String[] | Enum(MORNING, NOON, AFTERNOON, EVENING) | Buổi dùng |
+| medications.mealTiming | String | Default AFTER_MEAL, Enum(BEFORE_MEAL, AFTER_MEAL, DURING_MEAL, NONE) | Thời điểm theo bữa |
+| medications.instructions | String | Default "" | Hướng dẫn |
+| medications.usage | String | Default "" | Công dụng |
+| medications.isActive | Boolean | Default true | Trạng thái thuốc |
+| medications.confidence | Number | Default 0.5, Min 0, Max 1 | Độ tin cậy AI |
+| status | String | Default draft, Enum(draft, confirmed, archived) | Trạng thái đơn |
+| rawText | String | Default "" | OCR text thô |
+| qualityScore | Number | Default 0, Min 0, Max 1 | Điểm chất lượng OCR |
+| verificationNotes | String | Default "" | Ghi chú xác minh |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.19. Cấu trúc cơ sở dữ liệu – Collection Reminder
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID nhắc thuốc |
+| medicationId | ObjectId (ref: Medication) | Required, Index | Thuốc liên quan |
+| medicationName | String | Required | Tên thuốc |
+| dosage | String | Required | Liều |
+| unit | String | Required | Đơn vị |
+| scheduledTime | Date | Required | Thời gian nhắc |
+| status | String | Default PENDING, Enum(PENDING, TAKEN, SKIPPED) | Trạng thái uống |
+| mealTiming | String | Default NONE, Enum(BEFORE_MEAL, AFTER_MEAL, NONE) | Thời điểm theo bữa ăn |
+| session | String | Default CUSTOM, Enum(MORNING, NOON, EVENING, CUSTOM) | Ca uống |
+| takenAt | Date | Optional, Default null | Thời điểm đã uống |
+| isSynced | Boolean | Default true | Đồng bộ server/mobile |
+| lastUpdated | Date | Default now | Lần cập nhật gần nhất |
+| notificationIds | String[] | Default [] | Danh sách notification IDs |
+| escalationLevel | Number | Default 0 | Mức escalated nhắc lại |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
+
+---
+
+## Bảng 1.20. Cấu trúc cơ sở dữ liệu – Collection WellnessLog
+
+| Trường | Kiểu dữ liệu | Ràng buộc | Mô tả |
+|---|---|---|---|
+| _id | ObjectId | PK, auto | ID nhật ký wellness |
+| userId | ObjectId (ref: User) | Required | Người dùng |
+| type | String | Required, Enum(breathing, music) | Loại hoạt động thư giãn |
+| durationSeconds | Number | Required | Thời lượng (giây) |
+| date | Date | Default now | Ngày ghi log |
+| createdAt | Date | Auto (timestamps) | Thời điểm tạo |
+| updatedAt | Date | Auto (timestamps) | Thời điểm cập nhật |
